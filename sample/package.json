@@ -1,0 +1,32 @@
+{
+  "name": "webhooks-sample-app",
+  "version": "1.0.0",
+  "description": "Webhooks delivery platform: Kafka consumer + HTTP fan-out",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@openfeature/flagd-provider": "^0.16.0",
+    "@openfeature/server-sdk": "^1.23.0",
+    "express": "^4.19.2",
+    "kafkajs": "^2.2.4",
+    "mysql2": "^3.9.7"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.2.0",
+    "@types/express": "^4",
+    "@types/node": "^20",
+    "@types/supertest": "^7.2.1",
+    "gplint": "^2.5.2",
+    "monocart-coverage-reports": "^2.12.12",
+    "supertest": "^7.2.2",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

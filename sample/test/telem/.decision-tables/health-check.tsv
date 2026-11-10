@@ -1,0 +1,11 @@
+# dimensions: method=[GET,HEAD,other]; body-state=[absent-or-valid,malformed,oversized]
+method	body-state	disposition	reason
+GET	absent-or-valid	covered	"System is ready to accept requests after startup" (representative GET probe); full dep-health coverage in health-check-deps.tsv
+GET	malformed	covered	"Health check rejects a malformed JSON body" — express.json() returns 400 before the handler; reachable framework behavior on this endpoint
+GET	oversized	covered	"Health check rejects an oversized JSON body" — express.json() returns 413 before the handler; reachable framework behavior on this endpoint
+HEAD	absent-or-valid	covered	"HEAD request to the health check returns no body" — Express auto-derives HEAD from GET /health, returning 200 with an empty body
+HEAD	malformed	covered	"Health check rejects a malformed JSON body" — express.json() returns 400 before HEAD method routing; the middleware contract is method-agnostic, so this scenario covers the malformed-body cell for every method
+HEAD	oversized	covered	"Health check rejects an oversized JSON body" — express.json() returns 413 before HEAD method routing; the middleware contract is method-agnostic, so this scenario covers the oversized-body cell for every method
+other	absent-or-valid	covered	"PUT to health check endpoint is rejected" (with the DELETE/PATCH siblings) — an unregistered method falls through to a 404; the fallthrough is method-agnostic, so these scenarios cover the unsupported-method cell
+other	malformed	covered	"Health check rejects a malformed JSON body" — express.json() returns 400 before other method routing; the middleware contract is method-agnostic, so this scenario covers the malformed-body cell for every method
+other	oversized	covered	"Health check rejects an oversized JSON body" — express.json() returns 413 before other method routing; the middleware contract is method-agnostic, so this scenario covers the oversized-body cell for every method

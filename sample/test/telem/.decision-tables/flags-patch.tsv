@@ -1,0 +1,20 @@
+# dimensions: delivery_blocked=[non-boolean,true,false]; topic_state=[no_row,has_blocked_row,has_unblocked_row]; db_health=[healthy,unavailable]
+delivery_blocked	topic_state	db_health	disposition	reason
+non-boolean	no_row	healthy	covered	Scenario Outline "PATCH rejects non-boolean delivery_blocked values" covers 6 type variants in the default no_row+healthy state
+non-boolean	has_blocked_row	healthy	belt	typeof check returns 400 before upsert(); topic_state/db_health never evaluated (early return before try); same 400 path as "PATCH rejects non-boolean delivery_blocked values" (no_row+healthy)
+non-boolean	has_unblocked_row	healthy	belt	typeof check returns 400 before upsert(); topic_state/db_health never evaluated (early return before try); same 400 path as "PATCH rejects non-boolean delivery_blocked values" (no_row+healthy)
+non-boolean	no_row	unavailable	belt	typeof check returns 400 before upsert(); topic_state/db_health never evaluated (early return before try); same 400 path as "PATCH rejects non-boolean delivery_blocked values" (no_row+healthy)
+non-boolean	has_blocked_row	unavailable	belt	typeof check returns 400 before upsert(); topic_state/db_health never evaluated (early return before try); same 400 path as "PATCH rejects non-boolean delivery_blocked values" (no_row+healthy)
+non-boolean	has_unblocked_row	unavailable	belt	typeof check returns 400 before upsert(); topic_state/db_health never evaluated (early return before try); same 400 path as "PATCH rejects non-boolean delivery_blocked values" (no_row+healthy)
+true	no_row	healthy	covered	"Blocking a topic creates its delivery flag row" scenario
+true	has_blocked_row	healthy	covered	"Blocking an already-blocked topic is idempotent" scenario
+true	has_unblocked_row	healthy	covered	"Blocking a topic that was explicitly unblocked re-blocks it" scenario (Phase 4 emerging behavior)
+true	no_row	unavailable	covered	"PATCH returns 500 when the database is unavailable" scenario
+true	has_blocked_row	unavailable	belt	upsert() throws on DB failure before any branch on true/has_blocked_row; same 500 path as "PATCH returns 500 when the database is unavailable" (true+no_row+unavailable)
+true	has_unblocked_row	unavailable	belt	upsert() throws on DB failure before any branch on true/has_unblocked_row; same 500 path as "PATCH returns 500 when the database is unavailable" (true+no_row+unavailable)
+false	no_row	healthy	covered	"Unblocking a never-blocked topic creates an explicit unblocked row" scenario
+false	has_blocked_row	healthy	covered	"Unblocking a topic sets its row to unblocked" scenario
+false	has_unblocked_row	healthy	covered	"Unblocking an already-unblocked topic is idempotent" scenario (Phase 4 emerging behavior)
+false	no_row	unavailable	belt	upsert() throws on DB failure before any branch on false/no_row; same 500 path as "PATCH returns 500 when the database is unavailable" (true+no_row+unavailable)
+false	has_blocked_row	unavailable	belt	upsert() throws on DB failure before any branch on false/has_blocked_row; same 500 path as "PATCH returns 500 when the database is unavailable" (true+no_row+unavailable)
+false	has_unblocked_row	unavailable	belt	upsert() throws on DB failure before any branch on false/has_unblocked_row; same 500 path as "PATCH returns 500 when the database is unavailable" (true+no_row+unavailable)
