@@ -1,0 +1,10 @@
+# dimensions: request=[valid,missing-required-field,invalid-url-protocol,malformed-json]; db=[healthy,fail]
+request	db	disposition	reason
+valid	healthy	covered	"Register a webhook subscriber for a topic" (https, no headers), "Register a subscriber with custom delivery headers" (https, with headers), "Register a subscriber for a plain HTTP endpoint" (http, no headers) — all valid-request + healthy-db sub-variations covered
+valid	fail	covered	"Database failure when registering a subscriber returns internal server error"
+missing-required-field	healthy	covered	"Registration is rejected when a required field is missing" — Scenario Outline covering missing name, topic, and url (400 before DB is queried)
+missing-required-field	fail	belt	`!name||!topic||!url` guard at src/api/subscribers.ts:36 rejects 400 before db.create(); db=fail short-circuited (never reached), same path as "Registration is rejected when a required field is missing"
+invalid-url-protocol	healthy	covered	"Registration is rejected for a non-HTTP or non-HTTPS URL" — isValidWebhookUrl() returns false, 400 before DB is queried
+invalid-url-protocol	fail	belt	isValidWebhookUrl() at src/api/subscribers.ts:41 rejects 400 before db.create(); db=fail short-circuited, same path as "Registration is rejected for a non-HTTP or non-HTTPS URL"
+malformed-json	healthy	covered	"Registration is rejected for malformed JSON" — express.json() returns 400 before routing; the middleware contract is db-independent (db never reached), so this scenario covers the cell regardless of db state
+malformed-json	fail	covered	"Registration is rejected for malformed JSON" — express.json() returns 400 before routing; the middleware contract is db-independent (db never reached), so this scenario covers the cell regardless of db state

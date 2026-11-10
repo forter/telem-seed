@@ -1,0 +1,11 @@
+node_modules
+dist
+client/node_modules
+client/dist
+.env
+.idea
+
+coverage/
+
+# BDD outputs
+coverage-reports/

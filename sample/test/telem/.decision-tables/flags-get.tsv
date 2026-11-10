@@ -1,0 +1,10 @@
+# dimensions: db_health=[healthy,unavailable]; table_state=[empty,has_blocked,has_explicit_unblocked,has_mixed]
+db_health	table_state	disposition	reason
+healthy	empty	covered	"No topics have been explicitly managed" scenario
+healthy	has_blocked	covered	"A blocked topic appears in the delivery flag listing" scenario
+healthy	has_explicit_unblocked	covered	"Explicitly unblocked topics remain visible in the flag listing" scenario
+healthy	has_mixed	covered	"Unblocking one topic does not affect other blocked topics" round-trip scenario ends with GET returning one blocked and one unblocked row
+unavailable	empty	covered	"GET returns 500 when the database is unavailable" scenario (configureMysql throws on SELECT before rows are returned, regardless of seeded state)
+unavailable	has_blocked	belt	DB query throws on SELECT before any rows are returned regardless of seeded has_blocked state; same 500 path as "GET returns 500 when the database is unavailable" (unavailable+empty)
+unavailable	has_explicit_unblocked	belt	DB query throws on SELECT before any rows are returned regardless of seeded has_explicit_unblocked state; same 500 path as "GET returns 500 when the database is unavailable" (unavailable+empty)
+unavailable	has_mixed	belt	DB query throws on SELECT before any rows are returned regardless of seeded has_mixed state; same 500 path as "GET returns 500 when the database is unavailable" (unavailable+empty)

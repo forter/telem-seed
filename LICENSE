@@ -1,0 +1,18 @@
+Telem
+Copyright (c) Telem contributors
+
+This repository is under two licenses:
+
+- Source code (code files, and code in fenced blocks in the documentation):
+  MIT. See LICENSES/MIT.txt.
+- Everything else (documentation, methodology, prose, images):
+  Creative Commons Attribution 4.0 International (CC BY 4.0).
+  See LICENSES/CC-BY-4.0.txt.
+
+Everything is provided "as is", without warranty of any kind.
+
+Attribution (requested under CC BY 4.0 section 3(a)(1)(A)(i)): any work
+derived from this repository must say that it is based on the Telem
+methodology and link to the original repository:
+
+    https://github.com/omervk/telem

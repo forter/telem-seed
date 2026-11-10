@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Webhook Delivery — Capability</title>
+<style>
+  body { font-family: Georgia, serif; max-width: 45rem; margin: 3rem auto; padding: 0 1rem; color: #222; line-height: 1.6; text-align: justify; }
+  h1 { font-size: 1.5rem; border-bottom: 1px solid #ccc; padding-bottom: .5rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .pipeline { display: flex; align-items: center; gap: .5rem; margin: 1.5rem 0; flex-wrap: wrap; }
+  .box { background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: .5rem .9rem; font-size: .9rem; cursor: default; }
+  .box:hover .tip { display: block; }
+  .tip { display: none; position: absolute; background: #333; color: #fff; font-size: .78rem; border-radius: 4px; padding: .4rem .7rem; margin-top: .3rem; max-width: 16rem; z-index: 10; }
+  .arrow { color: #888; font-size: 1.2rem; }
+  .outcome { margin: .4rem 0; padding: .3rem .7rem; border-radius: 3px; font-size: .9rem; }
+  .success { background: #e8f5e9; border-left: 3px solid #4caf50; }
+  .blocked { background: #fff3e0; border-left: 3px solid #ff9800; }
+  .failed  { background: #fce4ec; border-left: 3px solid #e91e63; }
+  .retry   { background: #e3f2fd; border-left: 3px solid #2196f3; }
+  abbr { text-decoration: underline dotted; cursor: help; }
+</style>
+</head>
+<body>
+
+<h1>Webhook Delivery — What this flow does</h1>
+
+<p>When a Kafka message arrives on a topic, the platform looks up every registered
+<abbr title="A service endpoint registered to receive webhooks for a specific Kafka topic">subscriber</abbr>
+for that topic and attempts to deliver the message to each one via HTTP POST.
+Every delivery attempt — success or failure — is written to the delivery log.</p>
+
+<h2>Pipeline</h2>
+<div class="pipeline">
+  <div class="box" style="position:relative">
+    Kafka message
+    <span class="tip">Contains: topic, optional key, optional payload bytes.</span>
+  </div>
+  <span class="arrow">→</span>
+  <div class="box" style="position:relative">
+    Subscriber lookup
+    <span class="tip">Queries the database for all subscribers registered on the incoming topic. If none found, the message is silently committed with no side effects.</span>
+  </div>
+  <span class="arrow">→</span>
+  <div class="box" style="position:relative">
+    Flag check
+    <span class="tip">Each topic can have a delivery-blocked flag. If set, all subscribers are logged as "blocked" and no HTTP call is made.</span>
+  </div>
+  <span class="arrow">→</span>
+  <div class="box" style="position:relative">
+    HTTP fan-out
+    <span class="tip">One HTTP POST per subscriber, run in parallel. Each POST carries the raw payload and an idempotency key (X-Delivery-Id) that is stable across retries.</span>
+  </div>
+  <span class="arrow">→</span>
+  <div class="box" style="position:relative">
+    Delivery log
+    <span class="tip">Every attempt is written: subscriber ID, message key, payload, attempt number, status, HTTP status code, and error message.</span>
+  </div>
+</div>
+
+<h2>Possible outcomes per subscriber</h2>
+<div class="outcome success">✓ <b>Success</b> — 2xx response → logged as "success", delivery complete.</div>
+<div class="outcome blocked">◌ <b>Blocked</b> — topic flag is set → logged as "blocked", no HTTP call made.</div>
+<div class="outcome failed">↻ <b>Retry</b> — non-2xx or network error → logged as "failed", retried up to 6 times total.</div>
+<div class="outcome retry">✗ <b>Exhausted</b> — all 6 attempts failed → final attempt logged as "exhausted".</div>
+
+<h2>At-least-once guarantee</h2>
+<p>If the delivery log write fails (database error), the handler propagates the error so the
+<abbr title="The message broker; it guarantees the message is redelivered if the consumer does not acknowledge it">Kafka</abbr>
+offset is not committed. The message will be redelivered. This is intentional: a delivery attempt that
+cannot be recorded is treated as if it never happened.</p>
+
+</body>
+</html>

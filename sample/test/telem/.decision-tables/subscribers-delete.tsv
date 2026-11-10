@@ -1,0 +1,10 @@
+# dimensions: id-format=[valid-integer,non-numeric]; subscriber-exists=[yes,no]; db=[healthy,fail]
+id-format	subscriber-exists	db	disposition	reason
+valid-integer	yes	healthy	covered	"Remove a registered subscriber" — subscriber seeded, DELETE returns 204 with affectedRows=1
+valid-integer	yes	fail	covered	"Database failure when removing an existing subscriber returns internal server error" scenario — subscriber exists, db.remove() throws, returns 500
+valid-integer	no	healthy	covered	"API safely handles deletion of a non-existent subscriber" — affectedRows=0, returns 404
+valid-integer	no	fail	covered	"Database failure when removing a subscriber returns internal server error" — db.remove() throws, returns 500
+non-numeric	yes	healthy	belt	parseInt NaN check at src/api/subscribers.ts:62 rejects 400 before any DB query; subscriber-exists and db short-circuited, same path as "Deletion is rejected for a non-numeric subscriber ID"
+non-numeric	yes	fail	belt	parseInt NaN check at src/api/subscribers.ts:62 rejects 400 before any DB query; subscriber-exists and db short-circuited, same path as "Deletion is rejected for a non-numeric subscriber ID"
+non-numeric	no	healthy	covered	"Deletion is rejected for a non-numeric subscriber ID" — parseInt returns NaN, returns 400 regardless of subscriber/db state
+non-numeric	no	fail	belt	parseInt NaN check at src/api/subscribers.ts:62 rejects 400 before any DB query; subscriber-exists and db short-circuited, same path as "Deletion is rejected for a non-numeric subscriber ID"

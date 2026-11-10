@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Health Check — Capability</title>
+<style>
+  body { font-family: Georgia, serif; max-width: 45rem; margin: 3rem auto; padding: 0 1.5rem; font-size: 1rem; line-height: 1.6; color: #222; text-align: justify; }
+  h1 { font-size: 1.4rem; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .term { border-bottom: 1px dashed #888; cursor: help; }
+  .pill { display: inline-block; background: #eef; border: 1px solid #99c; border-radius: 3px; padding: .1rem .5rem; font-size: .9rem; font-family: monospace; }
+  .box { border: 1px solid #ddd; border-radius: 4px; padding: 1rem 1.2rem; background: #fafafa; margin: 1.5rem 0; }
+  .label { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: #666; margin-bottom: .4rem; }
+  details summary { cursor: pointer; color: #555; font-size: .9rem; }
+  details { margin: .4rem 0; }
+  code { font-family: monospace; background: #f0f0f0; padding: .1rem .3rem; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Health Check — What This Feature Tests</h1>
+
+<div class="box">
+  <div class="label">Feature</div>
+  <strong>Health check</strong>
+  <br>
+  <span style="font-size:.9rem;color:#555;">3 scenarios &nbsp;·&nbsp; GET /health</span>
+</div>
+
+<h2>What the health check is</h2>
+
+<p>
+  The <span class="term" title="A lightweight HTTP endpoint that reports whether the service is able to receive traffic">health check</span>
+  is a single endpoint — <code>GET /health</code> — that always replies <code>200 { status: "ok" }</code>.
+  It has no business logic: it does not read from the database, check feature flags, or call any external service.
+</p>
+
+<p>
+  Its audience is <span class="term" title="Kubernetes, ECS, Nomad, load balancers, or any automated system that must decide whether to route traffic to this instance">orchestrators</span>.
+  Before sending production traffic to an instance, an orchestrator hits this endpoint.
+  A 200 means "route here"; anything else means "wait or remove this instance from the pool."
+</p>
+
+<h2>What the test suite pins</h2>
+
+<p>Three properties of the endpoint are tested:</p>
+
+<ol>
+  <li><strong>Liveness.</strong> The service responds with 200 and a well-formed <code>{ status: "ok" }</code> body when asked.</li>
+  <li><strong>Wire format.</strong> The response carries <code>Content-Type: application/json</code> so callers can safely parse it without special-casing.</li>
+  <li><strong>Read-only surface.</strong> Non-<code>GET</code> methods (e.g. <code>POST</code>) are not accepted — the endpoint cannot accidentally absorb mutation traffic if a misconfigured client targets the wrong path.</li>
+</ol>
+
+<div class="box">
+  <div class="label">Not tested here</div>
+  <p style="margin:0;font-size:.9rem;">
+    Dependency health (database reachability, Kafka lag, flagd connectivity) is <em>not</em> checked.
+    This endpoint reports process liveness — whether the HTTP server is running — not system-wide health.
+    Deep health probes are out of scope for this endpoint and these tests.
+  </p>
+</div>
+
+<details>
+  <summary>Glossary</summary>
+  <dl>
+    <dt><strong>Orchestrator</strong></dt>
+    <dd>Automated system (Kubernetes, ECS, load balancer) that starts, stops, and routes traffic to service instances based on their reported health.</dd>
+    <dt><strong>Liveness check</strong></dt>
+    <dd>A minimal probe that answers "is the process alive and able to handle requests?" — distinct from a readiness check (can it serve this specific request?) or a dependency check (are its dependencies healthy?).</dd>
+    <dt><strong>Wire format</strong></dt>
+    <dd>The concrete encoding (here: JSON over HTTP) that callers must be able to parse without additional negotiation.</dd>
+  </dl>
+</details>
+
+</body>
+</html>

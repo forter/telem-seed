@@ -1,0 +1,11 @@
+# dimensions: method=[GET,HEAD,other]; body-state=[absent-or-valid,malformed,oversized]
+method	body-state	disposition	reason
+GET	absent-or-valid	covered	"A blocked topic appears in the delivery flag listing" (representative GET listing); full db/table-state coverage in flags-get.tsv
+GET	malformed	covered	"Listing delivery flags rejects a malformed JSON body" — express.json() returns 400 before the listing handler
+GET	oversized	covered	"Listing delivery flags rejects an oversized JSON body" — express.json() returns 413 before the listing handler
+HEAD	absent-or-valid	covered	"HEAD request to the flags listing returns no body" — Express auto-derives HEAD from GET, returning 200 with an empty body
+HEAD	malformed	covered	"Listing delivery flags rejects a malformed JSON body" — express.json() returns 400 before HEAD method routing; the middleware contract is method-agnostic, so this scenario covers the malformed-body cell for every method
+HEAD	oversized	covered	"Listing delivery flags rejects an oversized JSON body" — express.json() returns 413 before HEAD method routing; the middleware contract is method-agnostic, so this scenario covers the oversized-body cell for every method
+other	absent-or-valid	covered	"Unsupported method on the flags endpoint is rejected" — an unregistered method (PUT) falls through to a 404
+other	malformed	covered	"Listing delivery flags rejects a malformed JSON body" — express.json() returns 400 before other method routing; the middleware contract is method-agnostic, so this scenario covers the malformed-body cell for every method
+other	oversized	covered	"Listing delivery flags rejects an oversized JSON body" — express.json() returns 413 before other method routing; the middleware contract is method-agnostic, so this scenario covers the oversized-body cell for every method

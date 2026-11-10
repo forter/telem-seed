@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flags — Level 1: Capability</title>
+<style>
+  body { font-family: Georgia, serif; max-width: 45rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.6; text-align: justify; color: #1a1a1a; background: #fffdf8; }
+  h1 { font-size: 1.4rem; font-weight: normal; border-bottom: 1px solid #ccc; padding-bottom: .4rem; }
+  h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .endpoint { background: #f5f0e8; border-left: 3px solid #888; padding: .6rem 1rem; margin: 1rem 0; }
+  .endpoint code { font-family: monospace; background: #e8e0d0; padding: .1em .3em; }
+  abbr { cursor: help; border-bottom: 1px dotted #666; text-decoration: none; }
+  .scope-note { font-size: .88rem; color: #555; margin-top: 2rem; border: 1px solid #ddd; padding: .7rem 1rem; background: #fafafa; }
+  .key-fact { margin: .5rem 0; }
+  .key-fact::before { content: "→ "; color: #888; }
+</style>
+</head>
+<body>
+<h1>Manage topic delivery flags</h1>
+
+<p>This feature covers the HTTP API for blocking and unblocking per-topic
+<abbr title="A Kafka topic is a named stream of messages. Subscribers register to receive webhooks whenever a message arrives on their topic.">topic</abbr>
+delivery.
+Two endpoints read and write a flags file that
+<abbr title="flagd is a lightweight flag-evaluation daemon. It watches flags.json and hot-reloads when the file changes.">flagd</abbr>
+watches.</p>
+
+<h2>Endpoints under test</h2>
+
+<div class="endpoint">
+  <code>GET /api/flags</code><br>
+  Returns a map of every <abbr title="A Kafka topic string that has an explicit delivery-block entry in the flags file.">configured topic</abbr> to its blocked status.
+  Topics with no entry are absent from the response — they are not listed as <code>false</code>.
+</div>
+
+<div class="endpoint">
+  <code>PATCH /api/flags/:topic</code><br>
+  Sets or clears the delivery block for a single topic.
+  <code>{ "delivery_blocked": true }</code> creates an entry; <code>false</code> removes it.
+  Body must be a boolean — any other type returns 400.
+</div>
+
+<h2>The flags file</h2>
+<p>Both endpoints operate on <code>flags.json</code>, a JSON file on the local filesystem.
+Blocking a topic adds a structured entry; unblocking deletes it. The file is the only
+<abbr title="IO boundary: a point where the service communicates with something outside the process.">IO boundary</abbr>
+in this flow — no database, no Kafka, no outbound HTTP.</p>
+
+<h2>What is not covered here</h2>
+<div class="scope-note">
+  <strong>Out of scope:</strong> the effect of a blocked flag on actual delivery.
+  When a Kafka message arrives, the Kafka handler checks
+  <abbr title="isTopicBlocked() calls OpenFeature, which reads from flagd, which reads from flags.json.">isTopicBlocked()</abbr>,
+  which reads the same file via flagd. That integration is tested in the
+  <em>Deliver webhooks to subscribers</em> flow, not here.
+  This feature tests only the HTTP responses and the flags file state.
+</div>
+
+<h2>Key facts from the feature file</h2>
+<p class="key-fact">GET returns <code>{}</code> when no flags have been configured — not an error.</p>
+<p class="key-fact">Unblocking a topic that was never blocked is accepted (delete is a no-op, 200 returned).</p>
+<p class="key-fact">Blocking <code>__proto__</code> silently fails: PATCH returns 200 but the flag is never written. This is a documented latent bug.</p>
+<p class="key-fact">The flags file path is captured at module load time; test isolation is handled by an in-memory fake that intercepts filesystem calls.</p>
+</body>
+</html>
