@@ -17,6 +17,10 @@ Telem as a methodology is stable and sound, but the set of skills created for it
 3. Iterate on the skills.
 4. Provide [feedback](https://github.com/omervk/telem/issues) :)
 
+### What good looks like
+
+If you'd like to see what Telem's generated tests look like, you can explore a [100% AI generated and human-steered sample app](./sample/README.md).
+
 ## What Telem Is and Isn't
 
 Telem is a way of working with AI agents in a sustainable way, using a set of skills. It aims to cover **functional requirements only**, through automated tests. It's not a complete solution nor is it a silver bullet.

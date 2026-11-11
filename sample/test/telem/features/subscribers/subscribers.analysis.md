@@ -7,7 +7,7 @@
 
 ## 1. Flow Entry Point
 
-`src/api/index.ts:15` — `app.use('/api/subscribers', subscribersRouter)`
+`src/api/index.ts` — `app.use('/api/subscribers', subscribersRouter)`
 Router defined in `src/api/subscribers.ts`.
 
 ---
@@ -16,7 +16,7 @@ Router defined in `src/api/subscribers.ts`.
 
 Global middleware first, then route handlers:
 
-1. **`express.json()`** (global, `src/api/index.ts:9`) — parses JSON body. No short-circuit.
+1. **`express.json()`** (global, `src/api/index.ts`) — parses JSON body. No short-circuit.
 2. **GET `/`** (`src/api/subscribers.ts:17`) — calls `db.listAll()`; returns 200 JSON array. 500 on error.
 3. **POST `/`** (`src/api/subscribers.ts:28`) — validates required fields (`name`, `topic`, `url`); validates URL protocol; calls `db.create()`; fires `subscribeToTopic()` fire-and-forget; returns 201 with subscriber object. Short-circuits with 400 on validation failure, 500 on DB error.
 4. **DELETE `/:id`** (`src/api/subscribers.ts:60`) — parses `:id` as int; calls `db.remove()`; returns 204 on success, 404 if no rows affected, 400 if id is NaN, 500 on DB error.
@@ -31,7 +31,7 @@ Global middleware first, then route handlers:
 ### POST /api/subscribers
 - `isValidWebhookUrl(url)` — pure function; parses URL via `new URL()`, checks `protocol === 'http:' || 'https:'`
 - `db.create({ name, topic, url, headers })` → `getPool().query('INSERT INTO subscribers (name, topic, url, headers) VALUES (?, ?, ?, ?)')` → returns `{ id: result.insertId, name, topic, url, headers }`
-- `subscribeToTopic(topic)` (fire-and-forget, not awaited) → chains onto `subscribeLock`; in tests `consumer === null` so `doSubscribeToTopic` returns immediately — no Kafka IO occurs
+- `subscribeToTopic(topic)` (fire-and-forget, not awaited) → chains onto `subscribeLock`; in tests `consumer` is the kafkajs stub's consumer model (`reseatKafkaConsumer()`), so it runs stop → subscribe → run against it; each call is an owned effect (see §5)
 
 **POST response shape:** `Omit<Subscriber, 'created_at'>` — `{ id, name, topic, url, headers }`. No `created_at` in the response.
 
@@ -52,8 +52,8 @@ None. All logic within the Express app; no cross-service calls.
 
 | IO Dependency | Type | Used In | Fake Status |
 |---|---|---|---|
-| MySQL `subscribers` table | Data store | All three endpoints | **Faked** — `fake-mysql.ts` wired in `world.ts` via require.cache injection. Covers SELECT (listAll + findByTopic), INSERT, DELETE. |
-| KafkaJS consumer (`subscribeToTopic`) | Message broker (fire-and-forget) | POST only | **No-op stub** — `consumer === null` in tests; `doSubscribeToTopic` returns immediately. No fake registration needed; no IO occurs. |
+| MySQL `subscribers` table | Data store | All three endpoints | **Faked at the repository seam** — `fake-db.ts` (`subscribersFake`) wired in `world.ts` via require.cache injection of `dist/db/subscribers`. Covers `listAll`, `findByTopic`, `findDistinctTopics`, `create`, `remove`; verified against the real repository by `fake-db.parity.ts`. |
+| KafkaJS consumer (`subscribeToTopic`) | Message broker (fire-and-forget) | POST only | **Fake consumer model, owned** — `consumer` is the kafkajs stub's consumer (`reseatKafkaConsumer()`: fresh module state per scenario), so `doSubscribeToTopic` runs stop → subscribe → run against `createFakeConsumer()`. Each call is recorded and claimed (`takeOwnershipOfSubscriptions`, `takeOwnershipOfConsumerRunState`; the `Kafka consumer subscribes to each newly registered topic` auto-default claims them for every registration) and can `fail()`. The POST path never commits. |
 
 **No missing fakes** for this flow.
 
@@ -81,33 +81,32 @@ No code outside the subscriber management call graph exercises this flow's handl
 
 ## 8. COLLECTED-WISDOM Entries
 
-Relevant entries found (line refs into `COLLECTED-WISDOM.md`):
+Relevant entries in `COLLECTED-WISDOM.md`:
 
-- **Pool initialization** — `db.connect()` is called in `BeforeAll`, not by `createApp()`. Already handled correctly in `world.ts`.
-- **require.cache pattern** — pool is shared because `dist/db/index.js` is pre-loaded before `createApp()`. No proxyquire eviction.
-- **MySQL fake layering** — pool IS the IO boundary; `dist/db/subscribers.js` is a thin SQL wrapper covered transitively.
-- **URL slash in step text** — `CucumberExpressionError: Alternative may not be empty` if step text contains `/`. Use `GET the subscribers list`, not `GET /api/subscribers`.
+- **Module Loading** — `createApp()` doesn't call `db.connect()`; `world.ts` BeforeAll does.
+- **DB fake layering** — the repository (`dist/db/subscribers`) is the fake boundary, not the pool; `mysql2/promise` is a throw-on-use safety net.
+- **URL slash in step text** — `CucumberExpressionError: Alternative may not be empty` if step text contains `/`. Use `I GET the subscribers list`, not `GET /api/subscribers`.
 
 ---
 
 ## 9. Missing Fakes
 
 **None.** All IO for this flow is already covered:
-- MySQL fake handles SELECT / INSERT / DELETE for the `subscribers` table.
-- KafkaJS is a no-op stub (fire-and-forget path returns early; no assertions needed).
+- `fake-db` replaces the subscribers repository (`listAll` / `create` / `remove`); the SQL itself is covered by parity, not BDD.
+- The kafkajs stub's consumer models subscribe / run / stop with KafkaJS's real errors; every call is owned (see §5).
 
 ---
 
 ## Notes
 
-1. **`headers` JSON serialization** — MySQL stores `headers` as a JSON string; `parseRow()` JSON.parses it on SELECT. The fake's `seedSubscribers()` accepts `string | Record<string, string>`. Step definitions seeding subscriber rows can pass plain objects; the fake auto-stringifies.
+1. **`headers` is a JSON column that mysql2 returns already parsed.** The fake repositories return `headers` as an object (the parity suite pins this against real MySQL), with keys re-ordered the way MySQL stores JSON. `seedSubscribers()` accepts `string | Record<string, string>` (a string is parsed); step definitions can pass plain objects.
 
-2. **`takeOwnershipOfSubscriberInsert` returns headers as a JSON string** — step definitions asserting on the returned insert must `JSON.parse(result.headers)` to compare as an object.
+2. **`takeOwnershipOfSubscriberCreate` returns `headers` as an object**, so compare it directly (no `JSON.parse`).
 
 3. **POST response omits `created_at`** — `db.create()` returns `Omit<Subscriber, 'created_at'>`. Assertions on the 201 body should not expect `created_at`.
 
-4. **Fire-and-forget Kafka subscribe in tests** — `subscribeToTopic()` is called but consumer is null; `doSubscribeToTopic` returns immediately. The ownership safety net does not flag this (no Kafka IO is written). No special handling needed in scenarios.
+4. **Fire-and-forget Kafka subscribe in tests** — `subscribeToTopic()` runs for real against the fake consumer, in the background of the POST. Its effects are owned (the auto-default claims them; pinning scenarios take over), and the claim steps wait for in-flight calls first. A subscribe the broker rejects (illegal topic name such as "order placed") is only logged: the registration still answers 201.
 
-5. **DELETE 404 vs 204** — the fake's DELETE handler correctly tracks `affectedRows` (0 if id not in `state.subscribers`). Scenarios for non-existent id deletion will get 404.
+5. **DELETE 404 vs 204** — the fake's `remove` returns `affectedRows` 0 for an id that isn't seeded, so deleting a non-existent id answers 404.
 
 6. **No feature flags** — this flow is completely flag-free. The baseline flag declaration in `features/defaults.ts` is irrelevant here; no `Given` flag steps needed.

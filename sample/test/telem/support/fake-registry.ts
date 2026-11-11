@@ -12,7 +12,19 @@ export interface WiredFake {
   cacheKey: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fake: any;
+  /** The fake's test-facing module (seed / fail / takeOwnershipOf*), when it is not `fake` itself. */
+  api?: Record<string, unknown>;
+  /** The `name` this boundary's fake registered under — proves the safety net sweeps it. */
+  registryName?: string;
 }
+
+// Test-facing surface each category must expose (on `api`); ownership-bearing ones also need a takeOwnershipOf*.
+const CATEGORY_REQUIRED: Record<string, { functions: string[]; ownership: boolean }> = {
+  'data-store': { functions: ['fail'], ownership: true },
+  'external-service': { functions: ['fail'], ownership: true },
+  // Flag reads are inputs: failure injection, no ownership.
+  'flag-interceptor': { functions: ['fail'], ownership: false },
+};
 
 export const fakeRegistry: Fake[] = [];
 
@@ -51,8 +63,10 @@ export function cleanupScenario(scenarioId: string): void {
  *
  * Checks:
  * (a) Identity — fake still installed at its require.cache key (guards against silent overwrites).
- * (b) Coverage — every boundary from BOOTSTRAP_REPORT.md has a wired fake.
+ * (b) Coverage — every boundary in `bootstrapBoundaries` has a wired fake.
  * (c) Presence — at least one fake is wired at all.
+ * (d) Surface — each boundary's fake is in the registry the After hook sweeps, and its test-facing
+ *     module has the category's API (fail, takeOwnershipOf*).
  *
  * Called in BeforeAll in world.ts after the app is loaded.
  */
@@ -69,7 +83,7 @@ export function auditFakeWiring(bootstrapBoundaries: string[], wiredFakes: Wired
     }
   }
 
-  // (b) Every IO boundary from BOOTSTRAP_REPORT.md has a wired fake
+  // (b) Every listed IO boundary has a wired fake
   const wiredBoundaries = new Set(wiredFakes.map((w) => w.boundary));
   for (const boundary of bootstrapBoundaries) {
     if (!wiredBoundaries.has(boundary)) {
@@ -80,6 +94,27 @@ export function auditFakeWiring(bootstrapBoundaries: string[], wiredFakes: Wired
   // (c) At least one fake wired
   if (wiredFakes.length === 0) {
     errors.push('No fakes wired — the wiredFakes list is empty');
+  }
+
+  // (d) Registered with the safety net, and the category's test-facing API is present
+  const registered = new Set(fakeRegistry.map((f) => f.name));
+  for (const { boundary, category, fake, api, registryName } of wiredFakes) {
+    if (registryName !== undefined && !registered.has(registryName)) {
+      errors.push(
+        `Fake for '${boundary}' expects registry entry '${registryName}', which never registered. ` +
+          'Probable cause: the fake module skipped registerFake() or uses another name — its IO would escape the unowned-IO check.',
+      );
+    }
+    const required = CATEGORY_REQUIRED[category];
+    if (!required) continue;
+    const surface = api ?? fake;
+    const missing = required.functions.filter((fn) => typeof surface?.[fn] !== 'function');
+    if (required.ownership && !Object.keys(surface ?? {}).some((k) => k.startsWith('takeOwnershipOf'))) {
+      missing.push('takeOwnershipOf*');
+    }
+    if (missing.length > 0) {
+      errors.push(`Fake for '${boundary}' (${category}) is missing ${missing.join(', ')} on its test-facing module.`);
+    }
   }
 
   if (errors.length > 0) {

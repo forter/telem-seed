@@ -2,7 +2,17 @@ import assert from 'assert';
 import { BeforeAll, Before, After, Then } from '@cucumber/cucumber';
 import { throwIfAnyUnownedExist, cleanupScenario } from '../support/fake-registry';
 import { declareFlag } from '../support/fakes/fake-openfeature';
-import { wasKafkaDispatched, takeOwnershipOfCommitOffsets } from '../support/fakes/fake-kafka';
+import {
+  listDispatchedMessages,
+  takeOwnershipOfCommittedOffsets,
+  takeOwnershipOfSubscriptions,
+  takeOwnershipOfConsumerRunState,
+  settleKafkaConsumer,
+  isLegalKafkaTopicName,
+  CONSUMER_GROUP_ID,
+  type ConsumerRunStateEntry,
+} from '../support/fakes/fake-kafka';
+import { listCreatedSubscriberTopics } from '../support/fakes/fake-db';
 import type { WebhooksWorld } from '../support/world';
 
 // Loaded at runtime (deferred) to avoid a circular import:
@@ -10,7 +20,7 @@ import type { WebhooksWorld } from '../support/world';
 // fully loaded before features/defaults.ts is resolved. A static top-level import would
 // create a partial-module cycle. Runtime require in BeforeAll is the correct break point.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-let activeDefaults: { arrange?: { baselineFlags?: Record<string, boolean> }; assert?: Record<string, (this: WebhooksWorld) => void> } | undefined;
+let activeDefaults: { arrange?: { baselineFlags?: Record<string, boolean> }; assert?: Record<string, (this: WebhooksWorld) => void | Promise<void>> } | undefined;
 let flagManifest: Record<string, { flags?: Record<string, string[]>; excluded?: Record<string, string> }> = {};
 
 // Single deployment environment — no region/DR detection needed.
@@ -21,15 +31,12 @@ const UNOWNED_IO_ASSERTION = 'No unowned IO changes should remain';
 BeforeAll(function () {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   activeDefaults = require('../features/defaults').default;
-  // Fail loud if the wrong defaults module was resolved. `require('../features/defaults')`
-  // is caller-context-dependent: a tsx-hooked .ts caller (this file) resolves defaults.ts,
-  // but a plain-JS caller would resolve the sibling defaults.js audit stub (empty assert),
-  // silently disabling the unowned-IO safety net. This guard converts that into a hard error.
+  // Fail loud if the defaults module lost its final auto-assertion: without it the unowned-IO
+  // safety net is silently off for every scenario.
   if (!activeDefaults?.assert?.[UNOWNED_IO_ASSERTION]) {
     throw new Error(
-      `defaults module is missing the '${UNOWNED_IO_ASSERTION}' auto-assertion — ` +
-        'the ownership safety net would be disabled. Did the audit stub (features/defaults.js) ' +
-        'get resolved instead of features/defaults.ts?',
+      `features/defaults.ts is missing the '${UNOWNED_IO_ASSERTION}' auto-assertion — ` +
+        'the ownership safety net would be disabled. Restore it as the last entry of defaults.assert.',
     );
   }
   try {
@@ -73,37 +80,96 @@ export function assertNoUnownedChanges(this: WebhooksWorld): void {
 }
 
 /**
- * Auto-default: every scenario that dispatched a Kafka message must commit its offset exactly
- * once (the at-least-once guarantee — a committed offset means the message was processed and won't
- * be redelivered). Claiming ownership here removes read-only count inspection from step definitions.
- * Failure-path scenarios where the handler is expected to throw opt out via
- * "the Kafka offset should not have been committed", which relies on the ownership net for absence.
+ * Auto-default: every message a scenario dispatched must commit offset + 1 of ITSELF on ITS partition
+ * (Kafka's rule: the committed offset is the next one to read; at-least-once — a committed offset means the
+ * message was processed and won't be redelivered). Commits are claimed per (topic, partition) and compared
+ * in dispatch order, so a wrong +N, partition, topic or commit count fails here.
+ * Scenarios that assert specific offsets themselves, or expect the handler to throw, opt out
+ * (see the Kafka commit steps in webhook-delivery.steps.ts); the ownership net then covers the rest.
  */
 export function assertKafkaOffsetCommitted(this: WebhooksWorld): void {
-  if (!wasKafkaDispatched(this.scenarioId)) return; // HTTP-only scenarios never touch the consumer
-  const count = takeOwnershipOfCommitOffsets(this.scenarioId);
-  assert.strictEqual(
-    count,
-    1,
-    `Expected exactly one Kafka offset commit (at-least-once: offset committed → message processed) ` +
-      `but got ${count}. Probable cause: handleMessage() committed more than once, or a retry path ` +
-      `re-committed. What to check: the commitOffsets call at the end of src/kafka/consumer.ts handleMessage().`,
-  );
+  const messages = listDispatchedMessages(this.scenarioId);
+  if (messages.length === 0) return; // HTTP-only scenarios never touch the consumer
+
+  const expectedByPartition = new Map<string, { topic: string; partition: number; offsets: string[] }>();
+  for (const { topic, partition, offset } of messages) {
+    const key = JSON.stringify([topic, partition]);
+    const group = expectedByPartition.get(key) ?? { topic, partition, offsets: [] };
+    group.offsets.push((BigInt(offset) + 1n).toString());
+    expectedByPartition.set(key, group);
+  }
+  for (const { topic, partition, offsets } of expectedByPartition.values()) {
+    const committed = takeOwnershipOfCommittedOffsets(this.scenarioId, topic, partition);
+    assert.deepStrictEqual(
+      committed,
+      offsets.map((offset) => ({ topic, partition, offset, failed: false })),
+      `Expected each dispatched message on "${topic}" partition ${partition} to commit the offset after its own ` +
+        `(${offsets.join(', ')}). Probable cause: handleMessage() committed a different offset, partition or topic, ` +
+        'committed more than once, or the commit failed. ' +
+        'What to check: the commitOffsets call at the end of src/kafka/consumer.ts handleMessage().',
+    );
+  }
 }
 
-// Single After hook — replaces the one in world.ts (which must be removed).
-// Ordering within this body is guaranteed:
-//   1. Auto-default ownership claims (including assertNoUnownedChanges last)
-//   2. Per-scenario cleanup — always runs via finally, even when an assertion throws.
-//      Without the finally, a failing assertion would skip cleanup and leave stale state
-//      (e.g. fail() failure config) that bleeds into the next scenario when the
-//      non-determinism fake re-issues the same deterministic scenarioId.
-After(function (this: WebhooksWorld) {
+/**
+ * Auto-default: registering a subscriber on a topic subscribes the Kafka consumer to it — once per distinct
+ * topic, however many subscribers share it — by stopping the running consumer, subscribing, and running again
+ * (src/kafka/consumer.ts doSubscribeToTopic). A topic the broker rejects (an illegal name such as "order placed")
+ * still gets its one attempt; the registration succeeds anyway because the subscribe is fire-and-forget.
+ * Scenarios that pin the lifecycle themselves (failures, restarts, races) opt out.
+ *
+ * The expectation walks the topics in registration order the way the production loop does: a consumer that is
+ * running is stopped first; a failed subscribe leaves it stopped (nothing runs it again until the next success).
+ */
+export async function assertKafkaSubscriptions(this: WebhooksWorld): Promise<void> {
+  const topics = [...new Set(listCreatedSubscriberTopics(this.scenarioId))];
+  if (topics.length === 0) return; // nothing was registered (or every registration was rejected)
+
+  const expectedRunState: ConsumerRunStateEntry[] = [];
+  const subscribed: string[] = []; // the topics a (re)started consumer joins its group with: all successful ones so far
+  let running = false;
+  for (const topic of topics) {
+    if (running) {
+      expectedRunState.push({ op: 'stop', groupId: CONSUMER_GROUP_ID, failed: false });
+      running = false;
+    }
+    const subscribes = isLegalKafkaTopicName(topic);
+    assert.deepStrictEqual(
+      await takeOwnershipOfSubscriptions(this.scenarioId, topic),
+      [{ op: 'subscribe', topic, fromBeginning: false, failed: !subscribes }],
+      `Expected exactly one subscribe attempt for topic "${topic}" (${subscribes ? 'a legal topic name, so it succeeds' : 'an illegal topic name, so the broker rejects it'}). ` +
+        'Probable cause: subscribeToTopic skipped the topic, subscribed it twice, or subscribed while the consumer was still running. ' +
+        'What to check: doSubscribeToTopic in src/kafka/consumer.ts (subscribedTopics check, stop before subscribe, the subscribeLock).',
+    );
+    if (subscribes) {
+      subscribed.push(topic);
+      expectedRunState.push({ op: 'run', groupId: CONSUMER_GROUP_ID, topics: [...subscribed], failed: false });
+      running = true;
+    }
+  }
+  if (expectedRunState.length > 0) {
+    assert.deepStrictEqual(
+      await takeOwnershipOfConsumerRunState(this.scenarioId, CONSUMER_GROUP_ID),
+      expectedRunState,
+      `Expected the consumer to run, then stop and run again for each further topic (${topics.join(', ')}), each run joining the group with every topic subscribed so far. ` +
+        'Probable cause: the consumer was not stopped before re-subscribing, was not run after a subscribe, or two registrations interleaved. ' +
+        'What to check: doSubscribeToTopic / startRunning in src/kafka/consumer.ts.',
+    );
+  }
+}
+
+// The single After hook. Ordering within this body is guaranteed:
+//   1. Auto-default ownership claims (assertNoUnownedChanges last)
+//   2. Per-scenario cleanup, in a finally so a failing assertion can't skip it: every scenario has the same
+//      scenarioId (see COLLECTED-WISDOM.md "Scenario ids and randomUUID"), so stale state would leak into the next one.
+After(async function (this: WebhooksWorld) {
   try {
+    // The Kafka consumer is driven by a fire-and-forget subscribe; let it finish before claiming its effects.
+    await settleKafkaConsumer();
     if (activeDefaults?.assert) {
       for (const [text, handler] of Object.entries(activeDefaults.assert)) {
         if (!this._skippedDefaults?.has(text)) {
-          handler.call(this);
+          await handler.call(this);
         }
       }
     }
@@ -112,8 +178,7 @@ After(function (this: WebhooksWorld) {
   }
 });
 
-// Opt-out step — temporary escape hatch while scenarios are incrementally brought under
-// the ownership model. Track usage and aim to eliminate.
+// Opt-out of the unowned-IO check. No scenario uses it.
 Then('we might have unowned IO changes', function (this: WebhooksWorld) {
   if (!this._skippedDefaults) this._skippedDefaults = new Set();
   this._skippedDefaults.add('No unowned IO changes should remain');
