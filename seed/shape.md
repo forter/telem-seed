@@ -19,7 +19,7 @@ To construct it, read [`/backfill`](skills/backfill.md).
 
 Once backfilling is done, the repo **graduates** and is set up for contributions to follow the Red-Green-Refactor-Whitebox process.
 
-To construct it, read [`/backfill`](skills/backfill.md).
+To construct it, read [`/graduate`](skills/backfill.md#graduate).
 
 ## `/telem-{platform}:sync`
 
