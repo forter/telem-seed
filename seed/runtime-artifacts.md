@@ -70,7 +70,7 @@ module.exports = {
 };
 ```
 
-Below the top-level properties, there is no prescribed format. Fit the structure of the data to your use case. Evolve it as you see fit.
+Below the top-level properties, there is no prescribed format. Fit the structure of the data to your use case. Evolve it as you see fit. That includes flag values: booleans, functions of the user, percentages or anything else are all allowed. Investigate the repo's flag system to see which kinds it uses, and support those.
 
 Read more about `No unowned IO changes should remain` in [Fakes](./fakes.md) and about the feature flag baseline in [Discovery](./discovery.md). 
 

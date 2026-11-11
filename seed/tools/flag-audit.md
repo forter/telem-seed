@@ -18,7 +18,7 @@ Despite the Telem command name (`map-flags-to-features`), it never maps a flag t
   - Baseline file path.
   - Path exclusions.
   - **Dynamic annotations**: flag name → non-empty reason (blank or whitespace-only is rejected at load).
-- **Baseline**: the baseline sections of the defaults file (`tests/telem/features/defaults.{ext}`). It has two: binary flags and rollout (percentage) flags. Both count as declared.
+- **Baseline**: the baseline sections of the defaults file (`tests/telem/features/defaults.{ext}`). Every flag it declares counts as declared, whatever its kind (boolean, a function of the user, a percentage rollout, or anything else the repo's flag system supports) and however the repo groups them.
 - **Manifest** (optional): `tests/telem/flag-manifest.json`, contract owned by [flag permutation runner](./flag-permutation-runner.md#inputs). This spec assumes the flat shape `feature → {flags: [..], excluded: {FLAG: "category: reason"}}`.
 - **Production source**, minus exclusions.
 
@@ -38,7 +38,7 @@ Per flag, keep the set of files that read it.
 
 ### 3. Parsing the baseline
 
-Parse the baseline declaration structurally. Fail loudly, naming file and expectation, on an unrecognized shape: the declaration missing, in the wrong container, a non-string key, a non-boolean value, a syntax error. Don't scan the file for lines that look like flags: that counts booleans from unrelated sections, silently drops flags with trailing comments or several to a line, and turns a malformed baseline into confident wrong output ("every flag is code-only"). Never execute the file.
+Parse the baseline declaration structurally. Fail loudly, naming file and expectation, on an unrecognized shape: the declaration missing, in the wrong container, a non-string key, a syntax error. Accept any kind of value; don't validate or evaluate it. Don't scan the file for lines that look like flags: that counts booleans from unrelated sections, silently drops flags with trailing comments or several to a line, and turns a malformed baseline into confident wrong output ("every flag is code-only"). Never execute the file.
 
 Read names only; values are the interceptor's concern. A baseline with zero flags is valid.
 
