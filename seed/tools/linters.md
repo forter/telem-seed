@@ -1,6 +1,6 @@
 # Lint rules
 
-Static rules that catch a methodology violation at lint time, before any scenario runs. They cover what an AST or a feature-file parse can prove; judgment rules (llm-lint) are listed in [Fakes §13](../fakes.md#13-deterministic-validation-tooling) and are out of scope here.
+Static rules that catch a methodology violation at lint time, before any scenario runs. They cover what an AST or a feature-file parse can prove; judgment rules are defined in the [llm-lint section](#llm-lint-judgment-rules) below and run by the [llm-lint tool](./llm-lint.md).
 
 Each rule's paragraph is its spec. The residual is what the rule still lets through. Examples are invented; the appendix pins the boundary of the rules where prose is ambiguous.
 
@@ -122,6 +122,99 @@ Every name in a Then-block bracket list (`[store-receipt, emit-invoice]`) must b
 
 ### `example-column-whole-step`
 In a Scenario Outline, flag a step of any keyword whose trimmed text is exactly `<x>` where `x` is an Examples column (a lone `<x>` that isn't a column is a stray literal and is left alone). Blocking: there's no legitimate case. Why: the row's meaning moves into the table and the step definitions, and rows that need different setup steps are different scenarios. Residual: a placeholder inside other text passes.
+
+## llm-lint (judgment rules)
+
+Judgment rules that no AST or regex check can express, run by [`llm-lint`](./llm-lint.md). Each is one markdown file: a header naming the `target` kind (and optional `context` kinds) plus a prompt body. Kinds resolve to file globs in the consuming repo's config, so one rule file serves every runtime. All rules answer with `{ "violations": [...] }`, each violation carrying at least `file`, `line` and `summary`, plus rule-specific fields.
+
+Rules sit next to the deterministic layer that covers the same artifact. Step-definition and fake rules are shared by the Node (eslint) and Python (flake8) runtimes: same file, different globs. Examples inside rule files may be in one language; the contract is runtime-neutral. Rule names are kept as defined, including repo-flavored vocabulary ("destination").
+
+All of them are advisory: the judge decides whether the code violates the rule, not whether the rule is optional. A confirmed violation is not waivable where no static rule backs it (`ownership-claim-integrity`); detection is the judgment, not the requirement.
+
+### Feature files — `target: feature-file`
+
+#### `assert-observable-outcome`
+Each scenario in a business-flow feature must assert at least one produced output (a value at a path, an emitted payload, a persisted record, a decision) or an absence (empty-body negative step). Flag a scenario whose assertions are only status-code checks and/or substring/contains checks on a serialized payload: a smoke test proves the flow ran, not that it produced the right shape. Exempt: harness-bootstrap features, substring checks on free-form text (log line, error message), absence/rejection scenarios. Violation carries the scenario name and which output to own.
+
+#### `destination-in-assertions`
+A Then/And step asserting IO into a multi-destination system (queue, topic, bucket, key-value store) must name the exact destination as a quoted parameter or via a bracketed output list. Flag steps that say "a message was sent to the queue" with no destination. Exempt: HTTP-response assertions, absence assertions ("nothing anywhere"), single-destination endpoints, detail steps following a step that already named the destination, field-level assertions on message content, and noun phrases that uniquely identify the destination.
+
+#### `exclusive-fallback-destination`
+A scenario that positively asserts delivery to one member of an either-or routing set (primary → secondary → dead-letter, primary/replica) must also assert, by empty-body negative steps, that every rival stayed empty. Otherwise a double-write passes green, because an unasserted leak is never claimed. Flag winner-only scenarios. When it can't be told from the file whether the destinations are exclusive or a deliberate fan-out, report it as a question, not a verdict.
+
+#### `feature-file-comments`
+Comments must explain why, never what or how (the name and steps already say those). Flag comments that restate the adjacent step or scenario name, or name an internal function. Three further violations, independent of that test: methodology provenance (step numbers, "peer review", "round N", headers named after a process phase), source line-number citations (`file.ext:123`; the symbol alone survives edits), and counts ("six callers"; name the selecting property instead). Exempt: section dividers (unless named after a process phase), ticket/design-doc links, file-level contract headers, tag explanations, borderline cases. Fix is removal or a why, never a rewrite suggestion; for provenance, rename the heading to its subject.
+
+#### `given-step-clarity`
+Two sub-rules. (1) `raw-id`: a Given selecting a tenant/entity must use a descriptive predicate ("a live tenant", "the tenant has X configured"), not an opaque hex/numeric ID. (2) `invisible-precondition`: when a Then asserts behavior that depends on an unseeded non-default condition, a Given (possibly a no-op step) must document it. Exempt: Background auth, named entities, self-documenting values (`"nonexistent-key"`), steps explicitly framed as raw-value, Outline ID columns paired with a name column, preconditions set by tags or stated in the scenario name, default availability of a fallback system. Don't suggest rewrites (the reviewer doesn't know which step definitions exist); do tell the fixer a named or no-op step definition may need adding.
+
+#### `multi-output-bracket-list`
+A Then/And step bundling more than one IO output must end with a bracketed shorthand list `[out-a, out-b]`. Square brackets, because Cucumber expressions treat parentheses as optional text and silently swallow the list. Judge each step on its own text: a single-output step stays exempt even when a sibling carries a bracket list. Exempt: steps already bracketed, HTTP-response/read/Given/When steps, Outline placeholders, and "transform and send" phrasing (encrypt-and-publish is one operation).
+
+#### `new-scenario-missing-context`
+Applies to behavior-changing contributions, whose working spec (PRD, bug triage) is deliberately not committed. Each feature file that gains scenarios must carry somewhere (file header counts) both a why not recoverable from the steps and an external link (ticket ID, PRD, RFC, thread). Look only at scenarios added in the diff; flag a file at most once and say which half (`why`, `link`, `both`) is missing. Exempt: trivial changes (docs-only, test-only refactors, confirmed dead code); for emergent or internally-driven behavior the link half may legitimately not exist, so fork on it instead of ruling.
+
+#### `scenario-naming`
+Three axes on each Scenario/Outline title. (1) Implementation leak: internal variable, flag, key or function names, or boolean conditions; the title must read at business or effect level. (2) No-information restatement: the title only strings the steps' inputs and outputs into a sentence, with no business concern. (3) Unasserted claim: the title makes a specific checkable behavioral claim that no Then verifies ("only the first names the archive"). A stated concern ("merchants don't see timeouts") needs no step; a concrete claim does. Exempt: external system names, domain terms, terms appearing in the scenario's own steps or docstrings, protocol vocabulary, infrastructure destination names, observable mode names, control-flow verbs describing visible behavior, Outline `<placeholders>`, mapping outlines where the restatement is the rule, borderline names. Fix is a rewrite at business level, or the Then to add / claim to strike.
+
+#### `then-step-naming`
+Then/And steps name the business or effect ("a message was written to the X queue", "no touchpoint recorded"), not the fake or method that verifies it ("fakeKafka should have a message", "the repository should have 1 call to insert"). A step bundling several outputs must name each (bracket list or spelled out), else it's opaque ("all IO verified"). Exempt: external system names as destinations, bracketed steps, HTTP status/body assertions, generic "IO verified" steps, "should be owned" (domain term for the ownership pattern), content/routing of messages sent to external systems. Don't suggest rewrites.
+
+#### `unowned-io-opt-out`
+No Then/And step may suppress the unowned-IO safety net (the After-hook check that fails the scenario if any IO was produced but never claimed). Flag steps pairing "unowned" with might/may/allow/skip/ignore/suppress, or otherwise permitting leftover IO; repos phrase this differently, so judge by purpose. Exempt: steps asserting zero IO for a destination, steps taking ownership, steps verifying that nothing is unowned. Fix: own the IO or assert zero per destination.
+
+#### `webhook-when-voice`
+Scenarios about notification/webhook reception (files under a webhooks directory, or names/descriptions mentioning webhook, notification, callback) must use passive When steps ("When the X notification is received"), because the system under test is the receiver. Active voice ("When I send a POST to …") is reserved for deliberately malformed, missing, invalid or unauthorized requests and non-2xx expectations. Scope gate first: if none of the file signals fire, return empty immediately. Don't suggest a specific rewrite.
+
+### Step definitions — `target: step-def`
+
+#### `diagnostic-assertion-messages`
+Every assertion message already present must carry three parts: what failed with the actual value interpolated, the probable cause in a test context, and what to check (a concrete component, seed or config). Flag messages missing any part and list which (`actual-value`, `probable-cause`, `what-to-check`). Standard: would someone reading CI logs know what to investigate without reproducing locally? Exempt: assertions with no message (a static rule catches those), helper modules under `support/`, simple precondition type guards, loop assertions where the index/key gives enough context, messages already complete in different phrasing.
+
+#### `emptiness-validation-via-ownership`
+A negative assertion ("nothing was sent") must be an empty-body Then step that claims nothing, so any leak stays unowned and the safety net fails the scenario. Flag a Then step that calls `takeOwnershipOf*` and then asserts the result is empty (length 0, `.empty`, `=== 0`): claiming the IO to prove emptiness disarms the net for that destination. Exempt: positive ownership with a non-zero assertion, read-only inspection then zero (that's `ownership-over-inspection`), pure empty-body steps, ownership where zero is one branch of a larger check, Given/When steps.
+
+#### `full-shape-assertions`
+A Then step must assert the full shape of an IO payload: destructure the dynamic fields (timestamps, IDs, latencies), assert their types, then deep-equal the remainder against a complete expected object. Flag two or more sequential assertions on fields of the same object without a deep-equal on the whole/rest (field access, `have.property`, existence-only). Follow delegation: when a step calls a helper, evaluate the helper (provided as context) and report there. Note for fixes: after JSON round-trip, keys holding `undefined` are absent, so omit them from the expected object. Exempt: fewer than two assertions on one object, different objects, type guards before a deep-equal, conditionals/loops, single-field steps, an existing nearby deep-equal, internal helper objects, and pass-through containers such as transport-injected HTTP headers.
+
+#### `hardcoded-expected-values`
+Expected values in Then steps must derive from scenario input state (the world's tenant, last request body, headers, response cross-referenced against an input, step parameters), not literals duplicating them. Second violation, the tautology: an expected value read out of the same captured IO record the step asserts on can never fail; the fix is a pinned literal, not a derivation (report with a "pin a literal" note as the source). Follow delegation into helpers. Exempt: domain constants (decisions, protocol strings, event types, methods, queue names), deep-equal objects mostly made of constants, enum-like behavior values, status codes, mixed template strings, values unavailable on the world, literals matching step parameters, field-transformation outputs, a single isolated case, and file-scoped constants used in both setup and assertion.
+
+#### `ownership-over-inspection`
+Then steps must claim IO with `takeOwnershipOf*`, never read it with inspection methods (`getMessages`, `getCalls`, `listEvents`, …) because the safety net can't see inspected data as asserted; and must never use `takeOwnershipOf*IfPresent`, which silently passes with `[]` when production stops writing. Report `read-only-inspection` or `if-present-ownership`. Exempt: peek-then-own on the same fake in one function, Given/When steps, absence assertions with no ownership call, helpers under `support/`, and reads of seeded config used to pick an assertion branch.
+
+#### `seeded-data-shape-mismatch`
+Each `seedFake(fake, data)` call must pass an object whose keys match the shape that fake expects: missing required keys or keys that don't exist. Infer the shape from sibling seed calls on the same fake, the fake's `seed` signature or store, and the repo's fake quick-reference docs; there is no hardcoded shape list. Exempt: extra optional keys, `configureFake` calls (failure-injection config), global seeding under `support/seeds/`, and any case where the shape can't be inferred (skip, never guess).
+
+### Fakes — `target: fake`
+
+#### `delayed-binding-in-dual-context-fakes`
+A fake that runs both at module load and at request time must read scenario state inside each method body (scenario-ID parameter or accessor), not from a variable captured at module scope: captured state is shared by concurrent scenarios and pollutes across them. Find fakes with both an init context and a request context, then flag request-time methods that read a module-scope variable set at init or by `configure`. Exempt: truly immutable shared constants and global config tables, lifecycle methods (`configure`, `seed`, `cleanup`, `reset`, `init`), single-context fakes, variables written once in the before-all hook and never mutated.
+
+#### `diagnostic-error-messages`
+Errors thrown by fakes carry three parts: what happened with interpolated context (scenario ID, method, key, bucket, topic), the probable cause in a test context, and the concrete next step. Opaque or context-only messages are flagged, listing which of `context`, `probable-cause`, `fix` are missing. Exempt: re-throws and wrapped causes, files testing the fakes themselves (parity tests), errors deliberately mimicking real-service errors whose message must match, and trivial argument guards where the message is itself the fix.
+
+#### `documented-behavior-docstrings`
+A production-facing method on a fake wrapping a documented third-party library or external service must carry a documented-behavior docstring: the behaviors the real boundary documents (success variants, exact error codes callers branch on, edge/round-trip semantics), each mapped to how the fake injects it (failure-sequence call, or seeded state), with provenance. A one-line "returns the stored value" comment doesn't count. Without it, scenario discovery stays blind to documented behaviors production has no branch for. Judge first whether the boundary is authoritatively documented. Exempt: no-op stubs, ambient-value fakes (clock, randomness, UUID) the code doesn't branch on, routing layers delegating to real code, undocumented in-house boundaries, lifecycle/failure-injection/ownership methods, and behaviors deliberately not modeled with a recorded reason. Python carries the same content as a method docstring.
+
+#### `failure-injection-completeness`
+Fakes route failure injection through `fail(scenarioId, operation, sequence)` and `isConfiguredToFail`, with `operation` validated against a declared failable set (a typo raises at setup). If at least one sibling IO method in a fake is declared failable and calls the guard (`maybeFail`/`_maybe_fail`), every other IO-performing, production-facing method must do the same. An unwired method means the error path can't be exercised and likely hides a missing failure scenario. Exempt: static read-only accessors, lifecycle and failure-interface methods, no-op stubs, ownership/assertion methods, and fakes with zero guarded methods.
+
+#### `fakes-not-mocks`
+A fake stores and retrieves; a mock records calls and replays canned answers. Flag eight patterns, reporting which (`check`): (1) `seed-ignores-identifier`: seed keyed only by scenario ID though lookups receive identifying parameters (key, URL, query plus variables, topic, bucket); canned response objects also count; (2) `hardcoded-response`: a production-facing function returns a fixed value without consulting state; (3) `call-count-assertion`: call counts or order exposed as the assertion API; (4) `missing-key-not-found`: a default success returned when nothing matches, instead of null/throw/404; (5) `transport-level-seed-for-dedicated-fake`: a step seeds the generic transport fake with a URL for a service that has its own dedicated fake (the list of such services is repo-specific; check the fakes directory); (6) `response-shaped-seed-data`: `seed` accepting top-level `status`/`body`/`error`/`headers` instead of domain data; (7) `schema-mismatch`: seeded data with unknown or missing fields against a fake that validates schema; (8) `error-shape-mismatch`: plain errors thrown where production destructures structured ones. Exempt: no-op stubs, global-only stores, lifecycle and ownership methods, call logging for the ownership system, single-value-per-scenario seeds with no other identifier, capture-sink fakes that model the transport boundary on purpose (status/body/error are their domain), and mirrored real defaults.
+
+#### `ownership-claim-integrity`
+Every `takeOwnershipOf*` must satisfy three properties, reported in `failedChecks`. (1) `specificity`: requires a concrete, uniquely identifying key beyond the scenario ID: not a predicate (degenerates to `() => true`), not merely a destination or collection (a destination-level sweep), not a categorical attribute many items share (a message type), and not a `key` parameter that is accepted but never used to narrow. Nested stores need a key beyond the destination: `(scenarioId, destination, key)`. (2) `recording`: it must mark claimed data in the fake's owned-tracking state so the unowned check can see it; returning data without marking it is a peek. (3) `exact-matching`: resolve destination/key by strict equality or exact map lookup, never substring, regex, prefix or suffix, which silently claim overlapping names. Only exported/public methods are judged; skip `throwIfUnownedExist`, read-only helpers, and internal claim helpers.
+
+#### `ownership-method-completeness`
+A fake that stores per-scenario data (a `seed` writing into scenario-keyed storage, recorded production calls keyed by scenario ID, per-scenario collections) must expose both a throwing `takeOwnershipOf*(scenarioId, destination, key)` (requires a concrete key, claims matching data out of the unowned pool, throws if nothing matches so tests must be specific) and `throwIfUnownedExist(scenarioId)` (called by the After hook, throws listing unclaimed items). Missing the first forces read-only inspection; missing the second leaves unasserted data undetected at teardown. Report which methods are missing. Exempt: no-op stubs, global-only config stores, edits to an already-complete ownership surface, and seed-only fakes that never record production calls.
+
+### Decision tables — `target: decision-table`
+
+Runs by explicit path against the ephemeral decision-table file the `check-decision-table` gate consumes (not part of an unstaged sweep); the repo config must map the `decision-table` tag to the scratch path.
+
+#### `decision-table-reason-quality`
+The deterministic gate only proves that `cannot-occur` and `belt` rows have a non-empty reason; this rule judges whether the reason is checkable, from its text alone (not whether the mechanism is true). `cannot-occur` must name the specific mechanism by which the input cannot arrive on this path; flag restatements ("n/a", "can't happen"), deferrals ("covered elsewhere", "see above"), and reasons that describe a missing guard (the input still arrives, so the row is `belt`/`new`). `belt` must name (quote) the existing scenario or outline the combination shares a path with; flag platitudes ("belt and suspenders", "just in case") and code paths with no scenario behind them. For either disposition, flag reasons that justify the cell by which layer owns the branch ("framework-owned", "handled by middleware"): a protocol cell such as a malformed body → 400 is reachable and observable, so it is `new`, not unreachable and not a shared path. Skip `covered`/`new` rows. Violation carries the row (`dim=value …`), disposition, verbatim reason, and the fork: replace with the specific mechanism or shared scenario, or reclassify as `new`.
 
 ## Appendix: boundary examples
 
