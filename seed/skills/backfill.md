@@ -1,6 +1,6 @@
 # `/telem-{platform}:backfill`
 
-The backfill skill is a complex, long-running orchestrator skill that invokes sub-skills that execute the work. In this guide, the skill `/telem-{platform}:{skill-name}` will be abbreviated to `/{skill-name}`. Note that no sub-skill should ever be invocable outside this scope.
+The backfill skill is a complex, long-running orchestrator skill that invokes sub-skills that execute the work. In this guide, the skill `/telem-{platform}:{skill-name}` will be abbreviated to `/{skill-name}`. Note that no sub-skill should ever be invocable outside this scope, with one exception: `/preflight`, which is also user-invocable.
 
 When building out this skill and the skills herein, build them as terse as possible, and make sure that they are forward-linked only (if the orchestrator doesn't invoke them directly, the previous skill has to invoke the next one, while the next one should not be aware of the caller).
 
