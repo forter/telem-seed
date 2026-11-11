@@ -68,7 +68,7 @@ Coverage formats don't report an error handler as an arm, so parse the source.
 - Evidence is statement hit data, by line. No evidence, no row: a protected block that never ran (its
   enclosing code is classified at its entry arm, §2), a handler with no executable statements, and cleanup-only
   blocks with no handler are all silent by design.
-- **Parse every source dialect the repo uses** (including ones that parse differently depending on mode, supersets that need a transpiler, and newer syntax). Try the
+- **Parse every source dialect the repo uses** (see [the parsing hint](../hints/ast-grep.md); including ones that parse differently depending on mode, supersets that need a transpiler, and newer syntax). Try the
   configured dialects in turn; a file that parses under none is an error naming the file, never an empty
   result. See Challenges.
 
