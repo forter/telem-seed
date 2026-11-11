@@ -6,7 +6,7 @@ Each rule's paragraph is its spec. The residual is what the rule still lets thro
 
 ## Conventions shared by every platform
 
-- **Scope by file category.** Three categories: step definitions, support (the World, hooks, helpers) and fakes. Each rule names the categories it runs on. Scope is part of the spec: the same call is correct in one category and a defect in another (the per-scenario temp root is created from the OS temp dir in a hook; the same call in a step body leaks).
+- **Scope by file category.** Three categories: step definitions, support (the World, hooks, helpers) and fakes. Each rule names the categories it runs on. Scope is part of the spec: the same call is correct in one category and a defect in another (the per-scenario temp root is created from the OS temp dir in a hook; the same call in a step body leaks). Categories are disjoint: when one directory nests another (fakes under support), the inner category's files are excluded from the outer category's glob.
 - **Blocking unless marked advisory.** Advisory rules have a known false-positive class and must not fail CI. Where the linter has no warning tier, run advisory rules as a separate non-blocking pass.
 - **Step registration.** A call that registers a step definition, recognized by the called function's own name however it is reached; the step body is its function argument and the pattern its first argument, when that is a string or regex literal. A rule that matches only one call form silently covers nothing in a repo that uses another.
   - *(platform: JS)* `Given`, `When`, `Then`, `defineStep`, called bare, as a member (`ns.Given`), or in the transpiled sequence form `(0, ns.Given)(…)`.
