@@ -58,7 +58,6 @@ Phase 2. From the approved spec, writes the full suite before any production cod
 | Context preservation: embed the spec's motivation and links into names, descriptions and comment blocks now, while the PRD is open | Always | [Scenario Design §6](../scenario-design.md#6-context-preservation) |
 | Feature flags: both flag states from the start; categorize the flag and declare it in the right layer | The change adds a flag | [Discovery §9](../discovery.md#9-feature-flags) |
 | Fixtures and config dimensions: select fixtures by complete predicates; cover every behavior-changing config value the change reads, including the default | Change reads config or seeded data | [Discovery §8](../discovery.md#8-config-dimensions-and-fixtures) |
-| Environment profiles: cover both sides of a region/environment branch and tag honestly | The behavior is profile-specific | none yet |
 | Determinism: per-scenario isolation, every non-deterministic source faked, no retries or flaky tags | Always | [Fakes §8](../fakes.md) |
 
 **New IO boundary or operation.** A scenario that touches a boundary with no fake either hits the network block or, for a non-network boundary, leaks silently and passes vacuously. So the fake comes first:
@@ -79,7 +78,7 @@ Rules:
 - Aim for the simplest correct implementation. No abstraction the change doesn't need.
 - Stop if thrashing (fixing one test breaks another, repeatedly). It can signal a feature-level conflict; ask for guidance.
 
-Before declaring done: run the repo's full validation (unit tests, lint, BDD), and the full flag-permutation matrix ([runner spec](../tools/flag-permutation-runner.md)) before pushing, since the fast loop misses permutation and profile regressions that CI gates on. Both commands are in `CONTRIBUTING.md`.
+Before declaring done: run the repo's full validation (unit tests, lint, BDD), and the full flag-permutation matrix ([runner spec](../tools/flag-permutation-runner.md)) before pushing, since the fast loop misses permutation regressions that CI gates on. Both commands are in `CONTRIBUTING.md`.
 
 ## `/contribute-emerging-behavior`
 
@@ -97,7 +96,7 @@ A diff review catches the obvious additions and misses the implicit ones (a defa
 
 - IO ownership is unconditional. New code paths produce new IO; own all of it.
 - A new IO boundary introduced during Green must be faked before its IO can be owned. Build it the same way as in `/contribute-tests` (classify, build, wire, record behaviors, parity). A new operation on an existing fake needs only behavior recording and a parity extension.
-- Feature flags, environment profiles and fixtures load only if the change touches one. New code under an existing flag is the common case; a brand-new flag was handled in Phase 2.
+- Feature flags and fixtures load only if the change touches one. New code under an existing flag is the common case; a brand-new flag was handled in Phase 2.
 - Determinism: emerging behavior often involves ordering, clocks or async timing. Fake the source. `@no-parallel` is only for genuinely un-fakeable runtime dependencies ([Fakes §8](../fakes.md)).
 
 A new test that fails means one of two things: a bug (write the test to match current behavior and file the bug) or a misreading of the code. Resolve it before submitting.

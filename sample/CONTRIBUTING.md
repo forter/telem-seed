@@ -92,7 +92,7 @@ Submit the new tests for review. **Do not proceed until the reviewer is satisfie
 
 ### Before Pushing: Run the Full Matrix
 
-The inner loop above runs `npm run bdd-test` — the suite once, under default flags in one profile. That's fast, but it doesn't exercise the flag permutations or environment profiles where most regressions hide. CI gates on the **full matrix** (every feature under all flag combinations across all profiles), so run it locally before pushing:
+The inner loop above runs `npm run bdd-test` — the suite once, under default flags. That's fast, but it doesn't exercise the flag permutations where most regressions hide. CI gates on the **full matrix** (every feature under all flag combinations), so run it locally before pushing:
 
 ```bash
 npm run bdd-test:permutations
@@ -112,4 +112,4 @@ The core rule is **route the finding, don't just fix the site**: a reviewer sees
 - **Tests are the spec.** They carry the context — scenario names describe business concerns, descriptions explain product context, comment blocks link to external resources.
 - **Never modify approved tests to accommodate implementation.** Add new tests if needed; don't change existing ones. If a test has an incorrect expectation (confirmed by re-reading the approved spec), fix it and note the correction in the PR.
 - **Stop if thrashing.** If fixing one test breaks another repeatedly, stop and ask for guidance.
-- **Run the full matrix before pushing.** The fast inner loop runs one profile under default flags; `npm run bdd-test:permutations` runs every flag combination across every profile — what CI gates on. Run it locally before pushing.
+- **Run the full matrix before pushing.** The fast inner loop runs under default flags; `npm run bdd-test:permutations` runs every flag combination — what CI gates on. Run it locally before pushing.
