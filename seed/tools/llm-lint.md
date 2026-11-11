@@ -132,18 +132,3 @@ The closing message matters more than it looks. Because results vary run to run,
 10. Concurrent execution with per-rule failure isolation and a findings cap.
 11. Output: structured lines on stdout, progress on stderr, honest exit status.
 12. Stub-model test suite covering the eight cases above.
-
-## Reference implementation
-
-`llm-lint/` in this repo (TypeScript, shells out to `claude`). Rule package: `bdd/packages/llm-lint-rules/`. Config schema: `llm-lint/config.schema.json`.
-
-## Gaps in the reference implementation vs this spec
-
-Worth fixing if the spec becomes the target:
-
-- The model command is hardcoded to `claude --model haiku`; not configurable.
-- The glob matcher is a hand-rolled subset (one `**`, one `*`), not a real glob engine.
-- No concurrency limit: every rule starts at once.
-- No size guard on prompts.
-- An unparseable answer exits the whole process immediately instead of failing just that rule and keeping the other results.
-- The `claude` binary being absent surfaces as a spawn error rather than a clear message.
