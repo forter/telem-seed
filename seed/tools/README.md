@@ -9,3 +9,4 @@ The Telem skills and runtime use quite a few tailor-made tools. This is a list o
 5. [Affected-flows attributor](./affected-flows.md).
 6. [Flag audit](./flag-audit.md).
 7. [Lint rules](./linters.md).
+8. [LLM lint](./llm-lint.md).
