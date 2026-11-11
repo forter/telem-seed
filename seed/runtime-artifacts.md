@@ -76,16 +76,21 @@ Read more about `No unowned IO changes should remain` in [Fakes](./fakes.md) and
 
 ### `tests/telem/flag-manifest.json`
 
-This file contains explicit declarations of feature flags used by each `feature` file. It's used by the test runner to figure out which flag permutations to run.
+This file contains explicit declarations of feature flags used by each `feature` file. It's used by the test runner to figure out which flag permutations to run. The shape is owned by the [flag permutation runner](./tools/flag-permutation-runner.md#inputs); this is an example.
 
 ```json
 {
-   "{business-flow-name}.feature": {
-      "_comment": "An explanation for why we chose to declare the flags",
+   "orders/submit.feature": {
+      "_comment": "An explanation for why we chose to declare the flags (optional)",
       "flags": [
          "FLAG_1",
          "FLAG_2"
-      ]
+      ],
+      "excluded": {
+         "FLAG_3": "io-only: controls a persistence destination, tested by dedicated scenarios"
+      }
    }
 }
 ```
+
+The key is the feature file's path relative to the features dir, `/`-separated. `flags` are permuted; `excluded` maps each flag kept out of the matrix to a `category: reason`.

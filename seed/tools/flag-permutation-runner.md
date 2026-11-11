@@ -40,7 +40,7 @@ The combo travels as JSON. The Python runner puts it in the `FLAG_PERMUTATION` e
 { "orders/submit.feature": { "flags": ["A", "B"], "excluded": { "C": "io-only: …" } } }
 ```
 
-`flags` lists the flags the runner permutes. The runner ignores `excluded`; it exists for humans and the [flag audit](./flag-audit.md).
+`flags` lists the flags the runner permutes. The runner ignores `excluded`; it exists for humans and the [flag audit](./flag-audit.md). An optional `_comment` string per entry explains why the flags were declared; the runner ignores it too, and must not reject it.
 
 Config. Every key is optional; defaults shown:
 
