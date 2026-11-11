@@ -18,8 +18,28 @@ In order:
 - **A header**: the dimensions in declared order, then disposition, then reason.
 - **One row per combination**: dimension values, a disposition, a free-text reason.
 
-Use a plain line-oriented format that can be hand-written and diffed. Put the reason last so it can
-contain anything, including the separator.
+The exact syntax is yours to choose; the file is work product, read only by this tool and the agent, so
+it never has to match another implementation's. Pick one that:
+
+- is line-oriented, with one row per line, so it can be hand-written and diffed;
+- uses a visible separator (tabs vanish in diffs and editors), and puts the reason last so it can
+  contain anything, including the separator;
+- makes the declaration unambiguous, so a typo in a dimension name or value is a parse error and not a
+  silently different grid.
+
+Illustrative only (not a required syntax):
+
+```
+dimension auth = valid, expired, missing
+dimension cache = hit, miss
+auth | cache | disposition | reason
+valid | hit | covered | "returns cached profile"
+valid | miss | new |
+expired | hit | cannot-occur | auth runs before the cache lookup
+expired | miss | cannot-occur | auth runs before the cache lookup
+missing | hit | cannot-occur | auth runs before the cache lookup
+missing | miss | cannot-occur | auth runs before the cache lookup
+```
 
 The file is regenerated whenever the flow is touched and never committed. Lasting knowledge goes in
 durable docs.
