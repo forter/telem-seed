@@ -27,6 +27,13 @@ If you strongly believe you have to make compromises, you **must** get human app
 You will be building the set of skills that AI agents will run to build Telem-style tests.
 Keep and mind and distinguish between [what you'll be building at build-time](./shape.md) and [what the skills will output when they're used at run-time](./runtime-artifacts.md).
 
+## Terms
+
+These terms are used throughout the seed with one meaning each:
+
+1. **Flow** (or business flow): a user-observable behavior of the system, and the unit of work that `backfill` processes. A **feature file** is the Gherkin that tests one flow. "Feature" on its own is avoided; a **feature flag** is always written in full.
+2. **Scenario context**: the per-scenario object that carries the scenario ID and the seeding, failure-injection and ownership helpers. It's called the **World** in Cucumber-JS and `context` in behave. The seed says "World" for short; use your framework's equivalent.
+
 ## Recurring references to tools
 
 These tools are mentioned in this seed, explained here to disambiguate:
