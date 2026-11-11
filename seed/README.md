@@ -31,7 +31,7 @@ Keep and mind and distinguish between [what you'll be building at build-time](./
 
 These tools are mentioned in this seed, explained here to disambiguate:
 
-1. `crit` - a tool that lets users review an agent's outputs and have a discussion with it. The user of this implementation of Telem may standardize on a different tool.
+1. [`crit`](https://crit.md) - a tool that lets users review an agent's outputs and have a discussion with it. The user of this implementation of Telem may standardize on a different tool. To decide what to use in its place, read about what `crit` does at https://crit.md.
 
 There are also tools referenced that you will be building. They're listed in the [Tool Seeds readme](tools/README.md).
 
