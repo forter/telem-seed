@@ -31,9 +31,11 @@ To construct it, read [`/sync`](skills/sync.md).
 
 These skills are loaded as part of the red-green-refactor-whitebox loop, as a way of providing context, tooling and methods. You can see them referred in the [Red-Green-Refactor-Whitebox example guidance](./red-green-refactor-whitebox.md).
 
+To construct them, read [`/contribute-*`](skills/contribute.md). It also covers `/review-pr-comments`, which an agent runs after the PR opens to read code review comments and check whether they should be rejected on methodological grounds (as it's the author of the tests).
+
 ## The Rest
 
-There are multiple other skills that can be created for convenience, such as one for an agent to read code review comments and check whether they should be rejected on methodological grounds (as it's the author of the tests). They'll be detailed later in this guide.
+There may be other skills worth creating for convenience. Build them the same way as the rest, and keep them terse.
 
 **Note:** Advice on how to build effective skills is still a moving target, advancing as models and coding harnesses advance. Research relevant guides on effective skill-building and take notes.
 
