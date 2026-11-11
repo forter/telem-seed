@@ -1,8 +1,7 @@
 # Flow Analysis: Health Check
 
-**Flow:** GET /health  
-**Checklist entry:** Flow 4  
-**Complexity:** Low-Medium (was Low — updated after dependency-probe feature)
+**Flow:** GET /health
+**Complexity:** Low-Medium
 
 ## 1. Flow Entry Point
 
@@ -14,8 +13,10 @@
 
 | Order | Handler | Short-circuits? | Modifies req/res? |
 |---|---|---|---|
-| 1 | `express.json()` (global) | No (GET has no body) | No |
-| 2 | async health handler | Yes — always terminates | Writes JSON response (200 or 503) |
+| 1 | `express.json()` (global) | Yes — 400 malformed or undecodable gzip / 413 oversized (gzip measured inflated) / 415 unsupported `Content-Encoding`, for any method, before routing and before any probe | No |
+| 2 | async health handler (GET, and HEAD derived from it) | Yes — always terminates | Writes JSON response (200 or 503) |
+| 3 | `express.static(publicDir)` | Serves files under `dist/public`; a `..` path gets 403 internally, which `fallthrough` turns into `next()` | No |
+| 4 | SPA catch-all `app.get('*')` | Yes — `sendFile(index.html)`; GET only, so other methods fall to Express's 404 | No |
 
 The route is registered before the REST API routers and before the static file serving / SPA catch-all. It is the first route registered.
 
@@ -24,8 +25,9 @@ The route is registered before the REST API routers and before the static file s
 ```
 GET /health
   → ping()                         src/db/index.ts       → pool.query('SELECT 1')
-  → isConsumerConnected()          src/kafka/consumer.ts → consumer !== null (with test override)
-  → isFlagsReady()                 src/flags/index.ts    → flagsInitialized (with test override)
+  → isConsumerConnected()          src/kafka/consumer.ts → consumer !== null (an unused test override short-circuits it).
+                                   startConsumer() assigns `consumer` before connect/subscribe/run, so a failed start still reads ok
+  → isFlagsReady()                 src/flags/index.ts    → flagsInitialized (an unused test override short-circuits it)
 ```
 
 Response:
@@ -42,15 +44,15 @@ Response:
 
 | Boundary | Fake | Access type |
 |---|---|---|
-| `mysql2/promise` (SELECT 1) | `fake-mysql` | Read-only probe; no ownership tracking needed |
+| `db.ping()` (`src/db/index.ts`; `SELECT 1` against real MySQL) | `fake-db` (`dbIndexFake.ping`, failure-injectable as `db.ping`) | Read-only probe; no ownership tracking needed |
 | Kafka consumer state | none (in-process) | In-process check only |
 | OpenFeature provider state | none (in-process) | In-process check only |
 
-`SELECT 1` routes to the fake's unknown-SQL fallback and returns `[[], {}]` — no ownership event recorded. The `assertNoUnownedChanges` default still holds: SELECT 1 is a read, not a tracked write.
+`db.ping` is a read on the repository-seam fake: it records nothing to own, and `fail(sid, 'db.ping', seq)` drives its failure. The Kafka scenarios that restart or stop the consumer produce owned lifecycle effects (subscribe / run / stop).
 
 ## 6. Configuration Dimensions
 
-Three binary dep states × 2^3 = 8 observable combinations (all covered in the feature file):
+Three binary dependency states give 2^3 = 8 combinations, all covered in the feature file. There is no short-circuit: every probe runs whatever the others return. The full decision tables (adding the Kafka startup outcomes, the HEAD verb, method × body and path variants) are the gitignored TSVs named in the implementation notes.
 
 | mysql | kafka | flags | status |
 |---|---|---|---|
@@ -65,29 +67,16 @@ Three binary dep states × 2^3 = 8 observable combinations (all covered in the f
 
 ## 7. Domain-Wide Sweep Results
 
-`grep -rn "health\|ping\|isConsumerConnected\|isFlagsReady" src/` found:
-- `src/api/index.ts` — health handler, imports ping, isConsumerConnected, isFlagsReady (accounted for)
-- `src/db/index.ts` — ping() (accounted for)
-- `src/kafka/consumer.ts` — isConsumerConnected(), __overrideConsumerConnectedForTest() (accounted for)
-- `src/flags/index.ts` — isFlagsReady(), __overrideFlagsReadyForTest(), flagsInitialized (accounted for)
-- `src/index.ts` — comment ("Start Express first so /health responds immediately") — documentation only
+`grep -rn "health\|ping\|isConsumerConnected\|isFlagsReady" src/` found only the call graph above plus the two `__override…ForTest` hooks and `flagsInitialized`; `src/index.ts` has a comment only ("Start Express first so /health responds immediately"). Nothing else.
 
-No unaccounted-for code.
+## 8. Harness requirements
 
-## 8. COLLECTED-WISDOM Entries
-
-`initFlags()` must be called in world.ts BeforeAll to set `flagsInitialized = true` — the harness was
-calling `db.connect()` and `initKafkaFake()` but not `initFlags()`, leaving `isFlagsReady()` returning
-false in all tests. Fixed by adding `flagsModule.initFlags()` after `createApp()` in BeforeAll.
+`world.ts` BeforeAll calls `initFlags()` after `createApp()`; without it `isFlagsReady()` is false in every scenario.
 
 ## 9. Missing Fakes
 
-None — MySQL SELECT 1 is handled by the existing fake-mysql; Kafka and OpenFeature state checks are in-process.
+None — `db.ping()` is handled by fake-db; Kafka and OpenFeature state checks are in-process.
 
 ## Notes
 
-- Test overrides (`__overrideConsumerConnectedForTest`, `__overrideFlagsReadyForTest`) are exported test
-  hooks in production code. They are the minimal touch that avoids stopping/restarting the real consumer
-  or re-initializing the flags module between scenarios.
-- The previous implementation was a single-expression unconditional 200. This analysis supersedes the
-  original which said "no IO dependencies" and "call graph has no sub-module calls."
+- `__overrideConsumerConnectedForTest` and `__overrideFlagsReadyForTest` are exported test hooks in production code that no step uses: the steps stop the real consumer and swap in an uninitialised copy of the flags module, so the real probes answer. Both are proposed for deletion (`FOLLOWUP.md`).

@@ -1,6 +1,0 @@
-# dimensions: db=[healthy,fail]; data=[some-subscribers,no-subscribers]
-db	data	disposition	reason
-healthy	some-subscribers	covered	"Registered subscribers appear in registration order" — GET returns JSON array sorted by id
-healthy	no-subscribers	covered	"Listing returns an empty array when no subscribers are registered" — GET returns []
-fail	some-subscribers	covered	"Database failure when listing returns internal server error even when subscribers exist" — GET returns 500 with subscribers seeded
-fail	no-subscribers	covered	"Database failure when listing subscribers returns internal server error" — GET returns 500

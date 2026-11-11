@@ -2,18 +2,13 @@
 
 Flow: `GET /api/flags` and `PATCH /api/flags/:topic`
 
-> **Updated (MySQL migration):** migrated from flagd+flags.json to MySQL topic_flags table.
-> The old analysis (file-based implementation) is superseded.
-
 ---
 
 ## 1. Flow Entry Point
 
 - **File**: `src/api/flags.ts`
-- **Registered**: `src/api/index.ts:16` — `app.use('/api/flags', flagsRouter)`
-- **Handlers**:
-  - `GET /` — line 7
-  - `PATCH /:topic` — line 19
+- **Registered**: `src/api/index.ts` — `app.use('/api/flags', flagsRouter)`
+- **Handlers**: `GET /` and `PATCH /:topic`
 
 ---
 
@@ -23,8 +18,8 @@ Flow: `GET /api/flags` and `PATCH /api/flags/:topic`
 1. `express.json()` — parses JSON body; needed for PATCH's `delivery_blocked`
 
 **GET /api/flags**
-1. `getAll()` (`src/db/topicFlags.ts`) — `SELECT topic, blocked FROM topic_flags ORDER BY topic`
-2. Maps rows to `{ [topic]: boolean }` (`blocked === 1` → `true`)
+1. `getAll()` (`src/db/topicFlags.ts`) — `SELECT topic, blocked FROM topic_flags ORDER BY topic`, mapping `blocked === 1` to a boolean
+2. The handler assigns each row into a plain object, `result[flag.topic] = flag.blocked`
 3. Sends `res.json(result)` — 200
 4. On DB error: `res.status(500).json({ error: 'Internal server error' })`
 
@@ -36,7 +31,7 @@ Flow: `GET /api/flags` and `PATCH /api/flags/:topic`
 5. `res.json({ topic, delivery_blocked })` — 200
 6. On DB error: `res.status(500).json({ error: 'Internal server error' })`
 
-No writeLock — MySQL UPSERT is atomic; concurrent PATCHes are safe at the DB level.
+No application lock: the MySQL upsert is atomic, so concurrent PATCHes are safe at the DB level.
 
 ---
 
@@ -50,7 +45,7 @@ No writeLock — MySQL UPSERT is atomic; concurrent PATCHes are safe at the DB l
 
 ## 4. Service Boundaries
 
-MySQL only (via shared `mysql2/promise` pool). No filesystem IO. No flagd/gRPC.
+MySQL only (via shared `mysql2/promise` pool). No filesystem IO.
 
 ---
 
@@ -58,9 +53,12 @@ MySQL only (via shared `mysql2/promise` pool). No filesystem IO. No flagd/gRPC.
 
 | IO Dependency | Type | Used In | Fake Status |
 |---|---|---|---|
-| `mysql2/promise` pool — `topic_flags` table | Database | `src/db/topicFlags.ts` | ✅ `fake-mysql.ts` — routes `SELECT topic, blocked FROM topic_flags` and `INSERT INTO topic_flags` |
+| `topic_flags` table (via the `src/db/topicFlags.ts` repository) | Database | `src/db/topicFlags.ts` | ✅ `fake-db.ts` (`topicFlagsFake`) — repository-level fake: `getAll()` (ordered by topic, collation-aware) and `upsert()`; verified against the real repository by `fake-db.parity.ts` |
+| `topic_flags` table (via `getPool().query`, bypassing the repository) | Database | `src/flags/MySqlFlagsProvider.ts` `loadCache()` | ✅ `fake-db.ts` provider-only pool (`enableTopicFlagsPool`, operation `pool.query`) — answers only `SELECT topic, blocked FROM topic_flags`, blocked as 0/1; opt-in per scenario |
+| `@openfeature/server-sdk` | Flag SDK | `src/flags/index.ts` | ✅ `fake-openfeature.ts`. Default: answers from fake-db rows (provider never runs). With `useRealFlagsProvider()`: runs the real provider, reproducing `setProviderAndWait` / `getBooleanValue` semantics |
+| `setInterval` (5 s cache reload) | Timer | `MySqlFlagsProvider.initialize()` | ✅ `non-determinism.ts` virtual clock (`useVirtualIntervals` / `advanceVirtualClock`), opt-in per scenario |
 
-**Note on separation**: `MySqlFlagsProvider` (in `src/flags/MySqlFlagsProvider.ts`) also queries `topic_flags`, but via the OpenFeature SDK path (`isTopicBlocked()` from the Kafka handler). That SDK path is faked entirely at the `@openfeature/server-sdk` level — `MySqlFlagsProvider` never runs in BDD tests. This flow's BDD scope is: HTTP responses and MySQL topic_flags state.
+**Two feature files**: `flags.feature` covers the HTTP API, where the provider is invisible. `flag-provider.feature` opts into the real provider and observes it through Kafka delivery and `delivery_log` (three startup states, the 5 s reload boundary, repeated reloads, out-of-band row delete, stale-on-reload-failure and recovery, fatal `initFlags()`, exact-case cache lookups).
 
 ---
 
@@ -70,7 +68,7 @@ MySQL only (via shared `mysql2/promise` pool). No filesystem IO. No flagd/gRPC.
 |---|---|---|
 | `topic_flags` table content | DB state | Determines what GET returns; PATCH mutates it |
 
-No env vars captured at module scope. No module-scope state hazards (writeLock was removed).
+No env vars captured at module scope.
 
 ---
 
@@ -82,17 +80,20 @@ grep -r "topic_flags\|topicFlags" src/ --include="*.ts"
 
 Results:
 - `src/db/topicFlags.ts` — primary repository (`getAll`, `upsert`)
-- `src/flags/MySqlFlagsProvider.ts` — separate query path for OpenFeature SDK (out of this flow's scope)
+- `src/flags/MySqlFlagsProvider.ts` — separate query path for the OpenFeature SDK (covered by `flag-provider.feature`)
 
-The HTTP flags API and the OpenFeature provider both read `topic_flags`, but through independent code paths. This flow owns only `src/api/flags.ts` + `src/db/topicFlags.ts`.
+The HTTP flags API and the OpenFeature provider both read `topic_flags`, through independent code paths with different key semantics: the table (and so the API) is case-insensitive, while the provider's cache is a JS `Map` and is exact-case. This flow owns `src/api/flags.ts`, `src/db/topicFlags.ts`, `src/flags/index.ts` and `src/flags/MySqlFlagsProvider.ts`.
+
+### Provider pipeline (`flag-provider.feature`)
+1. `initFlags()` → `setProviderAndWait(new MySqlFlagsProvider())` → `initialize()` → `loadCache()` (awaited; a rejection makes `initFlags()` reject, and `src/index.ts` `main()` exits the process) → `setInterval(loadCache, 5000)`
+2. Each reload builds a new `Map` and replaces the cache (deleted rows disappear); a failed reload is logged and the old cache is kept
+3. `isTopicBlocked(topic)` → `getBooleanValue(topic, false)` → `resolveBooleanEvaluation` → `cache.get(topic)` (exact-case), or the default `false` on a miss
 
 ---
 
 ## 8. COLLECTED-WISDOM Entries
 
-Relevant entries:
-- **IO boundary packages pre-stubbed in require.cache** — same pattern for `mysql2/promise`
-- **fake-mysql.ts topic_flags routing** — `SELECT topic, blocked FROM topic_flags` and `INSERT INTO topic_flags` routed in `routeQuery()`
+"The DB fake is at the repository seam" (parity pins collation: a re-cased topic is the same `topic_flags` row) and "fake-openfeature is backed by fake-db".
 
 ---
 
@@ -106,11 +107,15 @@ Relevant entries:
 
 PATCH always upserts — it never deletes rows. Unblocking sets `blocked=0`, not removes the row.
 
+`isTopicBlocked()` reads the provider's cache, not the table: a change appears at the first reload after it (up to 5 s later, on a fixed period from startup), and a reload that cannot reach MySQL keeps the previous state (stale, not fail-open).
+
 ---
 
 ## 10. Notes
 
 - **`delivery_blocked` type validation is strict**: only `boolean` passes; `"true"`, `null`, `undefined`, `1` all return 400.
 - **Unblocking writes a row with `blocked=0`** — the topic remains visible in GET with `blocked: false`. This is distinct from "never managed" (absent from GET). Three states, not two.
-- **`__proto__` topic name works correctly** — parameterized SQL stores it as a plain VARCHAR. The old file-based bug (prototype setter silently dropped the entry) is fixed.
+- **`__proto__` topic name is half-fixed** — PATCH stores and enforces it (parameterized SQL), but the GET handler's `result[flag.topic] = flag.blocked` hits the `__proto__` setter, so the row is missing from the listing. Pinned in `flags.feature`.
+- **Case-variant topics** — PATCH "Orders" lands on an existing "orders" row (collation) and keeps the old spelling; the exact-case cache then never blocks "Orders". Pinned in both feature files.
+- **Non-JSON bodies** — body-parser 1.x sets `req.body = {}` when it does not parse, so a plain-text PATCH gets the normal 400 (it does not hang).
 - **No auth on flag mutations** — any caller with network access can block/unblock. By design for this sample app.

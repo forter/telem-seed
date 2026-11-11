@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { Given, When, Then, DataTable } from '@cucumber/cucumber';
-import { seedSubscribers } from '../support/fakes/fake-mysql';
+import { seedSubscribers } from '../support/fakes/fake-db';
 import type { WebhooksWorld } from '../support/world';
 
 Given('no subscribers are seeded', function (this: WebhooksWorld) {
@@ -27,8 +27,8 @@ Then('the response status is {int}', function (this: WebhooksWorld, status: numb
     this.response.status,
     status,
     `Expected HTTP ${status}, got ${this.response.status}. ` +
-      `Probable cause: MySQL fake not wired, DB pool not initialized, or Express route threw. ` +
-      `Check: BeforeAll logs for "MySQL connected", response body for error details: ${JSON.stringify(this.response.body).slice(0, 200)}`,
+      `Probable cause: database fake not wired, or Express route threw. ` +
+      `Check: the require.cache seeds in world.ts, response body for error details: ${JSON.stringify(this.response.body).slice(0, 200)}`,
   );
 });
 
@@ -39,7 +39,7 @@ Then('the response body contains {int} subscriber(s)', function (this: WebhooksW
     count,
     `Expected ${count} subscribers, got ${body.length}. ` +
       `Probable cause: seedSubscribers() data didn't persist (wrong scenarioId or scenario isolation bug) or the query filter is wrong. ` +
-      `Check: the DataTable parse in the Given step and the fake-mysql SELECT routing.`,
+      `Check: the DataTable parse in the Given step and fake-db subscribers.listAll().`,
   );
 });
 
@@ -61,6 +61,6 @@ Then('the response body is an empty array', function (this: WebhooksWorld) {
     `Expected an empty array but got ${JSON.stringify(this.response.body).slice(0, 200)}. ` +
       `Probable cause: subscriber data leaked from a previous scenario (cleanup did not run), this scenario ` +
       `seeded data unintentionally, or the GET handler returned a non-array shape. ` +
-      `Check: scenario isolation in fake-mysql cleanup() and the "no subscribers are seeded" Given step.`,
+      `Check: scenario isolation in fake-db cleanup() and the "no subscribers are seeded" Given step.`,
   );
 });

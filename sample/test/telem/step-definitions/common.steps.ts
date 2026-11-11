@@ -4,6 +4,16 @@ import { WebhooksWorld } from '../support/world';
 
 // Used by: health-check.feature, subscribers.feature, flags.feature
 Then<WebhooksWorld>('the response status should be {int}', function (status: number) {
+  // Several registrations in a row: each overwrote this.response, so check every one, not just the last.
+  const regs = this.registrationResponses;
+  if (regs.length > 1 && regs[regs.length - 1] === this.response) {
+    assert.deepStrictEqual(
+      regs.map((r) => r.status),
+      regs.map(() => status),
+      `Expected every registration in this scenario to answer HTTP ${status}. ` +
+        `Bodies: ${JSON.stringify(regs.map((r) => r.body)).slice(0, 400)}`,
+    );
+  }
   assert.strictEqual(
     this.response.status,
     status,

@@ -8,25 +8,23 @@
     "excluded": {}
   },
   "subscribers/subscribers.feature": {
-    "_comment": "Reads no feature flags — subscriber CRUD routes do not call isTopicBlocked(). Registered so run-flag-permutations includes this feature.",
     "flags": { "default": [] },
     "excluded": {}
   },
   "flags/flags.feature": {
-    "_comment": "Reads no feature flags — GET/PATCH /api/flags read/write the MySQL topic_flags table directly; isTopicBlocked() is not called. Registered so run-flag-permutations includes this feature.",
+    "flags": { "default": [] },
+    "excluded": {}
+  },
+  "flags/flag-provider.feature": {
     "flags": { "default": [] },
     "excluded": {}
   },
   "health-check/health-check.feature": {
-    "_comment": "Reads no feature flags — GET /health probes MySQL, Kafka, and OpenFeature but does not call isTopicBlocked(). Registered so run-flag-permutations includes this feature.",
     "flags": { "default": [] },
     "excluded": {}
   },
   "webhook-delivery/webhook-delivery.feature": {
-    "_comment": "Dynamic per-topic delivery breaker. Flag key = Kafka topic name (runtime value). No static flags to enumerate — blocked/unblocked paths are covered by dedicated scenarios, not a permutation matrix.",
     "flags": { "default": [] },
-    "excluded": {
-      "<topic>": "path-diverting: flag key is the Kafka topic name (dynamic runtime value); enabling routes all matching subscribers to logAttempt('blocked'), skipping HTTP fan-out entirely — both paths covered by dedicated blocked/not-blocked scenarios throughout the feature file"
-    }
+    "excluded": {}
   }
 }
