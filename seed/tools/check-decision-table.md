@@ -70,6 +70,9 @@ fix. On success, print the total so the run shows how big the grid was.
 
 ### 4. The cross-check against the feature file (optional)
 
+Optional for the tool in general, but the backfill `/decision-table` step requires it, so the tool needs a
+way to be given the feature file and to run this check. How is yours to design.
+
 The table can only prove the *declared* grid is filled. The feature file closes two gaps:
 
 - **Claims with nothing behind them.** A `covered` or `belt` row must name a scenario that exists. This
