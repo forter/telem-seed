@@ -39,7 +39,7 @@ There are two entry points into this workflow:
 
 Changes that don't affect runtime behavior — documentation, test-only changes, dead code removal confirmed by coverage — can skip Phase 1a and go straight to Phase 2 (run the Pre-Flight first) with a one-line spec describing the change.
 
-Changes that add, remove, or modify code paths — including site lists, flag values, and config that routes behavior — are **not** trivial and require the full workflow.
+Changes that add, remove, or modify code paths — including flag values, and config that routes behavior — are **not** trivial and require the full workflow.
 
 ### Phase 1: Spec — PRD (1a, features) / Bug Triage (1b, bug fixes)
 
