@@ -37,7 +37,7 @@ There are also files that accompany the skills as they work, keeping track:
 
 1. In `tests/telem`:
    - `FLOW-CHECKLIST.md`: The list of flows and sub-flows that the backfill process is working through. This file is removed once the repo graduates.
-2. In `./telem`:
+2. In `.telem/` (repo root):
    - `bdd-onboarding-progress.json`: A file containing `{phase, flowsCompleted, pluginVersion}`, allowing the agent to keep track of what has already been backfilled.
    - `bdd-freshness.json`: A file containing `{pluginVersion, lastCheckedAt, lastCheckedCommit}`, created post-graduation, which helps `/sync` keep track of where to start work.
 
