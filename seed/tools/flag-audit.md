@@ -19,7 +19,7 @@ Despite the Telem command name (`map-flags-to-features`), it never maps a flag t
   - Path exclusions.
   - **Dynamic annotations**: flag name → non-empty reason (blank or whitespace-only is rejected at load).
 - **Baseline**: the baseline sections of the defaults file (`tests/telem/features/defaults.{ext}`). Every flag it declares counts as declared, whatever its kind (boolean, a function of the user, a percentage rollout, or anything else the repo's flag system supports) and however the repo groups them.
-- **Manifest** (optional): `tests/telem/flag-manifest.json`, contract owned by [flag permutation runner](./flag-permutation-runner.md#inputs). This spec assumes the flat shape `feature → {flags: [..], excluded: {FLAG: "category: reason"}, _comment?: "..."}`. `_comment` is free text the runner also accepts; ignore it here.
+- **Manifest** (optional): `tests/telem/flag-manifest.json`, contract owned by [flag permutation runner](./flag-permutation-runner.md#inputs). The audit reads only each feature's `flags` and `excluded`; it ignores any other property the contract allows.
 - **Production source**, minus exclusions.
 
 Validate the config at load and fail loudly, naming the field and file: a pattern missing a required field, a container mapping referenced but not defined, a malformed annotation. Publish a schema for the config; it must accept every key the loader accepts, or editors will flag valid configs.
@@ -62,7 +62,7 @@ Report counts first, then each category with its flags, and for covered and code
 ### 5. Manifest handling
 
 - **Absent by configuration** (no manifest configured or yet created, as in early discovery): skip the cross-check and print one line saying so.
-- **Present but unreadable or invalid** (unparseable, wrong shape, unknown entry property): fail loudly with what and where. Skipping silently disables the only check that finds uncategorized flags, and the clean report that follows is a false green.
+- **Present but unreadable or invalid** (unparseable, wrong shape, or an entry property the runner's contract doesn't define): fail loudly with what and where. Skipping silently disables the only check that finds uncategorized flags, and the clean report that follows is a false green.
 
 ### 6. Exit codes: gating, with a report mode
 
