@@ -39,7 +39,7 @@ The check blocks both before merge.
 
 #### Interface
 
-- **Inputs:** a plugin directory and a base branch. The base is the PR's target in CI and `main` locally.
+- **Inputs:** a plugin directory and a base branch. The base is the PR's target in CI and `main` locally. Compare like with like: the branch's own changes, from where it diverged, including whatever the author is about to ship, committed or not.
 - **Reads:** the plugin's manifest version and `CHANGELOG.md` at HEAD, and the same two files on the remote base branch.
 - **Exit codes:** 0 means pass, 1 means a rule was broken, 2 means a usage error. Each failure prints one message that names the file and tells the author how to fix it. In CI the message is emitted as an annotation.
 - **Runs in:**
