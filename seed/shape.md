@@ -65,6 +65,10 @@ Judgment-based lint rules that can't be expressed as regex or AST checks must us
 
 Each platform would have its own package with utilities used to build and run the tests, like `run-flag-permutations` (aka the permutation runner) which runs all the tests with all feature flag permutations, in parallel to each other. These must provide a command-line interface so they're invocable.
 
+Two kinds of code, kept apart:
+- **Tools** (`tools/`): built once per platform, shared across repos, never generated per repo.
+- **Runtime scaffolding** (World, fakes, hooks, seeding): generated into each repo by the skills, because it's bound to that repo's ports, config and fixtures. Not a shared package.
+
 ## Specifications
 
 For the tools you will have to build yourself, please see the [Tool Specs](./tools) list, where you can find a specification for each tool.
