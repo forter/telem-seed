@@ -1,30 +1,30 @@
 {
   "smoke.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "meta-tests.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "subscribers/subscribers.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "flags/flags.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "flags/flag-provider.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "health-check/health-check.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   },
   "webhook-delivery/webhook-delivery.feature": {
-    "flags": { "default": [] },
+    "flags": [],
     "excluded": {}
   }
 }

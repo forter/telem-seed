@@ -21,10 +21,8 @@ import type { WebhooksWorld } from '../support/world';
 // create a partial-module cycle. Runtime require in BeforeAll is the correct break point.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 let activeDefaults: { arrange?: { baselineFlags?: Record<string, boolean> }; assert?: Record<string, (this: WebhooksWorld) => void | Promise<void>> } | undefined;
-let flagManifest: Record<string, { flags?: Record<string, string[]>; excluded?: Record<string, string> }> = {};
+let flagManifest: Record<string, { flags?: string[]; excluded?: Record<string, string> }> = {};
 
-// Single deployment environment — no region/DR detection needed.
-const MANIFEST_ENV = 'default';
 const FEATURES_DIR = 'test/telem/features/';
 const UNOWNED_IO_ASSERTION = 'No unowned IO changes should remain';
 
@@ -67,7 +65,7 @@ Before(function (this: WebhooksWorld, { pickle }: { pickle: { uri: string } }) {
   const featureKey = pickle.uri.startsWith(FEATURES_DIR)
     ? pickle.uri.slice(FEATURES_DIR.length)
     : pickle.uri;
-  const manifestFlags: string[] = flagManifest[featureKey]?.flags?.[MANIFEST_ENV] ?? [];
+  const manifestFlags: string[] = flagManifest[featureKey]?.flags ?? [];
   for (const flag of manifestFlags) {
     if (baselineFlags?.[flag] !== undefined) continue;
     declareFlag(this.scenarioId, flag, { type: 'binary', value: permutation[flag] ?? false });
