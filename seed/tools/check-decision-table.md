@@ -34,7 +34,7 @@ dimension auth = valid, expired, missing
 dimension cache = hit, miss
 auth | cache | disposition | reason
 valid | hit | covered | "returns cached profile"
-valid | miss | new |
+valid | miss | new | "fetches and caches the profile"
 expired | hit | cannot-occur | auth runs before the cache lookup
 expired | miss | cannot-occur | auth runs before the cache lookup
 missing | hit | cannot-occur | auth runs before the cache lookup
@@ -76,6 +76,8 @@ way to be given the feature file and to run this check. How is yours to design.
 The table can only prove the *declared* grid is filled. The feature file closes two gaps:
 
 - **Claims with nothing behind them.** A `covered`, `new` or `belt` row must name a scenario that exists.
+  The table has no scenario column, so the name goes in the reason; when the cross-check runs, those three
+  dispositions therefore need a non-empty reason, even `new` and `covered`, where it's otherwise optional.
   This mainly catches a well-argued `belt` row with no outline written, and an all-`new` table with no scenarios.
 - **Under-declared dimensions.** If a parameter column shares a dimension's name, every value in it must
   be declared.
