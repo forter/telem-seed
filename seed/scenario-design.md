@@ -134,7 +134,8 @@ The feature file is read cold for years by people who never saw how it was made.
 | Observable outcome | `assert-observable-outcome` | advisory | The only detector for smoke tests |
 | Destination named | `destination-in-assertions` | advisory | Whether a boundary is multi-destination is a judgment |
 | Why-comments, link present | `feature-file-comments`, `new-scenario-missing-context` | advisory | Cannot verify a link resolves or that the why is true |
-| Duplicates, step reuse, tautological expected values | none | none | Reviewer judgment; no tool detects a derived-from-output expected value |
+| Duplicates, step reuse | none | none | Reviewer judgment |
+| Tautological expected values | `hardcoded-expected-values` | advisory | Only the judge sees it. A value derived from the output through a helper may escape |
 
 "Advisory" means the judge decides whether the code violates the rule, not that the rule is optional.
 
