@@ -20,7 +20,7 @@ An anchor moves forward only when its check is clean or the user accepts what's 
   - Apply what the user approves. Every item must end up applied or skipped with a reason.
 2. **Production**:
   - Diff the code from `lastCheckedCommit` to the remote default branch. Keep only changes to observable behavior.
-  - Attribute each changed hunk to *every* flow that runs it and add scenarios to each, per [Discovery: Shared-code drift fan-out](../discovery.md#shared-code-drift-fan-out), using [`affected-flows`](../tools/affected-flows.md) with per-feature coverage rebuilt fresh at the reconcile baseline.
+  - Attribute each changed hunk to *every* flow that runs it and add scenarios to each, per [Discovery: Shared-code drift fan-out](../discovery.md#shared-code-drift-fan-out), using [`affected-flows`](../tools/affected-flows.md) with per-feature coverage rebuilt fresh at the new HEAD.
   - If no flow runs the code, it's a moved file (rule out a rename first), dead code, or a new flow; queue a new flow for backfill.
   - If a scenario asserts behavior that production no longer has, ask the user whether the change was intended or is a bug.
   - Also reconcile fake parity and remove dead flags.
