@@ -104,7 +104,7 @@ one. They're regenerated and never committed.
 - **Console summary**: the row and file counts; the number of **files and branches examined** (zero findings
   from zero branches must read differently from zero findings from thousands); counts by kind, descending;
   the top N files by row count, descending, ties broken by path; the path of the human report. With zero rows,
-  stop after the first line.
+  stop after the first line and a reminder that statement-line gaps are a separate channel this report doesn't cover.
 
 ### 6. Command line
 
