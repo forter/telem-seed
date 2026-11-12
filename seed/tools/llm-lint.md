@@ -24,7 +24,7 @@ Output: one line of structured data per rule listing its violations, a final sum
 1. Read the config and check it makes sense. Fail early and clearly if it doesn't.
 2. Load every rule from the configured folders. Drop disabled rules. Skip, with a warning, any rule that is malformed or points at a kind the config doesn't define.
 3. Work out which files are in play, based on the mode the user picked.
-4. For each rule, keep the files whose path matches its kind. Rules with no matching files drop out.
+4. For each rule, keep the files in play whose path matches its kind. A rule with none drops out: say so in the progress output, it's fine. But first check that the kind matches at least one file in the repository (not just among the files in play). If it matches none, that's a config failure (usually a typo): report it in the summary, keep running the other rules, and exit non-zero.
 5. For each remaining file, build the *change* the model should look at: the diff with generous surrounding lines. A file with no diff yet (brand new, untracked) is presented as if it were entirely added. Files with nothing to show drop out.
 6. For each remaining rule, build one prompt: the rule text, then the changes, then any reference files in full, clearly labelled as "read-only, not being linted".
 7. Send each prompt to the model command, all rules at the same time.
