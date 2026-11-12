@@ -40,7 +40,7 @@ The check blocks both before merge.
 #### Interface
 
 - **Inputs:** a plugin directory and a base branch. The base is the PR's target in CI and `main` locally. Compare like with like: the branch's own changes, from where it diverged, including whatever the author is about to ship, committed or not.
-- **Reads:** the plugin's manifest version and `CHANGELOG.md` at HEAD, and the same two files on the remote base branch.
+- **Reads:** the plugin's manifest version and `CHANGELOG.md` as they are on the branch side (the working tree, so uncommitted edits count), and the same two files on the remote base branch.
 - **Exit codes:** 0 means pass, 1 means a rule was broken, 2 means a usage error. Each failure prints one message that names the file and tells the author how to fix it. In CI the message is emitted as an annotation.
 - **Runs in:**
   - CI, one job per plugin, triggered only by PRs that touch that plugin;
@@ -54,9 +54,9 @@ The order matters: the changelog rules apply even when no bump is due.
 2. **The top heading matches the version.** A heading's version is its first word after `## `, and anything after that is ignored. If there is nothing to say for an existing repo, the author still adds an entry, with `ON SYNC: none`.
 3. **Every heading is unique and in strictly descending semver order.** Compare the numbers field by field, not as strings, so that `0.10.0` sorts above `0.9.9`.
 4. **A plugin that doesn't exist on the base passes here.** This is allowed only if the base branch itself resolves. Without that condition, a typo'd base would let every change through as "new".
-5. **The changelog is append-only.** Find the base's top heading in HEAD. That heading and everything below it must be byte-identical to the base. So the only allowed edit is inserting new entries above the old top.
+5. **The changelog is append-only.** Find the base's top heading on the branch side. That heading and everything below it must be byte-identical to the base. So the only allowed edit is inserting new entries above the old top.
 6. **An untouched plugin passes here.** If nothing in the plugin directory differs from the base, no bump is required. This keeps a branch that's even with the base from failing.
-7. **The version changed.** HEAD's version must differ from the base's version.
+7. **The version changed.** The branch's version must differ from the base's version.
 
 Rule 7 checks only that the version is *different*. It doesn't need to check that it's *higher*, because rules 2, 3 and 5 together force the new top heading to sit above the base's top heading in descending order.
 
