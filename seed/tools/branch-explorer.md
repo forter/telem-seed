@@ -155,7 +155,10 @@ accounting step requires every file in the report to be classified. What the too
   root; a bad `--top` or an unknown option exits non-zero with a message; both reports are rewritten on a
   zero-row run.
 - Test against a **real** coverage report from the real producer for each supported platform, not only
-  hand-written fixtures; hand-written ones encode your assumptions about key shapes and positions.
+  hand-written fixtures; hand-written ones encode your assumptions about key shapes and positions. Coverage
+  output is ephemeral and describes one source revision, so a captured report is a frozen snapshot: keep it with
+  the source it came from, or regenerate it from a small fixture app, and fail with a "stale capture" message
+  when the two diverge.
 
 ## Appendix: worked example
 
