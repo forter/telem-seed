@@ -75,8 +75,8 @@ way to be given the feature file and to run this check. How is yours to design.
 
 The table can only prove the *declared* grid is filled. The feature file closes two gaps:
 
-- **Claims with nothing behind them.** A `covered` or `belt` row must name a scenario that exists. This
-  mainly catches a well-argued `belt` row with no outline written.
+- **Claims with nothing behind them.** A `covered`, `new` or `belt` row must name a scenario that exists.
+  This mainly catches a well-argued `belt` row with no outline written, and an all-`new` table with no scenarios.
 - **Under-declared dimensions.** If a parameter column shares a dimension's name, every value in it must
   be declared.
 
