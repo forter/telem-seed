@@ -47,12 +47,14 @@ BeforeAll(function () {
 
 // Seed baseline flags and manifest flags for every scenario.
 // Runs after world.ts's Before (which sets this.scenarioId) — support files load first.
-// FLAG_PERMUTATION env var (set by telem-bdd run-flag-permutations) overrides baseline values.
+// The permutation combo overrides baseline values. The Node runner passes it as worldParameters.flagPermutation;
+// the FLAG_PERMUTATION env var is the fallback for the Python runner and manual runs
+// (see seed/tools/flag-permutation-runner.md).
 Before(function (this: WebhooksWorld, { pickle }: { pickle: { uri: string } }) {
   const { baselineFlags } = activeDefaults?.arrange || {};
-  const permutation: Record<string, boolean> = process.env.FLAG_PERMUTATION
-    ? (JSON.parse(process.env.FLAG_PERMUTATION) as Record<string, boolean>)
-    : {};
+  const raw: unknown = this.parameters?.flagPermutation || process.env.FLAG_PERMUTATION;
+  const permutation: Record<string, boolean> =
+    typeof raw === 'string' ? (JSON.parse(raw) as Record<string, boolean>) : ((raw as Record<string, boolean>) ?? {});
 
   // Declare all baseline binary flags (empty for this dynamic flag system).
   if (baselineFlags) {
