@@ -117,7 +117,7 @@ Gate: **`check-decision-table`** (spec: `tools/check-decision-table.md`). It own
 Coverage can hit 100% with each dimension tested individually; the **cross-product** reveals combinations no scenario covers. Built from observable Givens only (implementation-agnostic); code is consulted at triage.
 
 1. **Identify dimensions.** Every Given that changes behavior: auth state, config, infra health, protocol outcome, request shape, headers, environment. Also: conditionals in the pipeline no Given names (silent drops, guards, event-type early returns); framework-owned protocol behaviors (route, method, body validity, body size) as dimensions of the endpoint's *contract* (a synthetic `request=[any]` means discovery stopped at the handler body); documented behaviors of faked boundaries with no `src/` branch (§10).
-2. **Cross them into the tool's table file, not in your head.** Regenerate whenever the flow is touched; durable "why impossible" goes to the repo's wisdom file.
+2. **Cross them into the tool's table file, not in your head.** Split into several tables only along independent dimensions, naming the independence argument in the flow's notes; dimensions that interact stay in one table. Regenerate whenever the flow is touched; durable "why impossible" goes to the repo's wisdom file.
 3. **Triage** every row.
 4. **Fill** the scenarios the dispositions require.
 
