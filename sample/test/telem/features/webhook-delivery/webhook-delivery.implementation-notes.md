@@ -38,7 +38,7 @@ reading and protocol thinking found them.
 
 Gitignored TSVs under `test/telem/.decision-tables/` (`webhook-delivery-fanout.tsv` subscribers × flag,
 `webhook-delivery-infra.tsv` route × infra, `webhook-delivery-retry.tsv` endpoint × attempt setting);
-each passes `telem-bdd check-decision-table --feature`.
+each passes `check-decision-table --feature`.
 
 **Not expressible with today's fakes:** one subscriber's log write failing while a sibling's succeeds in the
 same fan-out. `fake-db`'s `fail()` sequence advances by call arrival, which the methodology forbids binding to
@@ -70,7 +70,7 @@ mysql2 returns a `JSON` column already parsed (default `jsonStrings` unset; veri
 Node's `fetch()` throws a `TypeError` for network failures (always `TypeError('fetch failed')`; `fetchFailedError()`
 builds the same shape) and for local header validation (pinned by "A subscriber with an invalid header name is never
 contacted and exhausts its retries"), and its abort error is a `DOMException`, also an `Error`. **Defensive fallback.**
-(`telem-bdd trace` could not settle this: the tracer records `fetch` and the fakes as absent, not as leaves.)
+(`trace` could not settle this: the tracer records `fetch` and the fakes as absent, not as leaves.)
 
 ---
 

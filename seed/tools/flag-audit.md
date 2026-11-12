@@ -52,7 +52,7 @@ Let *found* = flags extracted, *declared* = baseline names, *manifest* = every n
 | baseline-only | in *declared*, not *found*, not annotated | Delete if dead; annotate if dynamic | A declaration for a removed flag makes the baseline lie and hides that production dropped it | A flag read by a dependency or through a non-literal key looks identical to a dead one; only a human can tell |
 | accepted-dynamic | baseline-only and annotated | none; print the reason | Resolved, so it doesn't repeat as noise on every run | The reason is free text; its quality is unchecked |
 | stale annotation | annotated, but *found*, or not in *declared* | Remove the annotation | Suppression lists rot silently otherwise | none |
-| code-only (intended; reference implementations compare against the baseline only) | in *found*, not in *declared* and not in the manifest's `flags` | Declare it (baseline, or manifest `flags`) | An undeclared read fails at runtime the moment a scenario reaches it | A flag in `excluded` only is categorized, not declared; it still needs a baseline entry or a Given |
+| code-only | in *found*, not in *declared* and not in the manifest's `flags` | Declare it (baseline, or manifest `flags`) | An undeclared read fails at runtime the moment a scenario reaches it | A flag in `excluded` only is categorized, not declared; it still needs a baseline entry or a Given |
 | manifest-declared | in *found*, not in *declared*, in some manifest `flags` | Informational | Manifest-only flags default to disabled, a legitimate layer; production-default-enabled flags belong in the baseline | A mistaken default-disabled flag that production enables |
 | uncategorized | covered, but in no manifest `flags` or `excluded` | Categorize per the tree in [Discovery §9](../discovery.md#9-feature-flags) | A flag that is neither permuted nor excluded escapes both the matrix and the dedicated scenarios | The check pools all features: it can't tell that the feature actually reading the flag is the one that categorized it |
 | non-literal call site | argument isn't a string literal (§2) | Trace the key's source | A variable argument is not proof of a dynamic keyspace | none; it's a work list, not a verdict |
@@ -66,7 +66,7 @@ Report counts first, then each category with its flags, and for covered and code
 
 ### 6. Exit codes: gating, with a report mode
 
-Intended behavior is **gating**, selectable (intended; the reference implementations are advisory). A strict mode exits non-zero if any of baseline-only (unannotated), stale annotation, code-only or uncategorized is non-empty; the report mode exits zero regardless. Use distinct codes for "findings" and "the audit itself failed" (unreadable config, baseline, manifest or a failed search tool).
+Intended behavior is **gating**, selectable. A strict mode exits non-zero if any of baseline-only (unannotated), stale annotation, code-only or uncategorized is non-empty; the report mode exits zero regardless. Use distinct codes for "findings" and "the audit itself failed" (unreadable config, baseline, manifest or a failed search tool).
 
 Why: during discovery, code-only and baseline-only are the work list, so report mode is right. Once the suite is complete, and on periodic drift checks ([Sync](../skills/sync.md)), those findings are rot, and a requirement to resolve them that lives only in prose is the kind agents skip; the gate is what makes it checkable. Every finding has a non-deceptive resolution, so a gate is satisfiable. Non-literal call sites never gate: they need judgment.
 
