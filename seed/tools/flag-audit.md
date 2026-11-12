@@ -19,7 +19,7 @@ Despite the Telem command name (`map-flags-to-features`), it never maps a flag t
   - Path exclusions.
   - **Dynamic annotations**: flag name → non-empty reason (blank or whitespace-only is rejected at load).
 - **Baseline**: the baseline sections of the defaults file (`tests/telem/features/defaults.{ext}`). Every flag it declares counts as declared, whatever its kind (boolean, a function of the user, a percentage rollout, or anything else the repo's flag system supports) and however the repo groups them.
-- **Manifest** (optional): `tests/telem/flag-manifest.json`, contract owned by [flag permutation runner](./flag-permutation-runner.md#inputs). This spec assumes the flat shape `feature → {flags: [..], excluded: {FLAG: "category: reason"}}`.
+- **Manifest** (optional): `tests/telem/flag-manifest.json`, contract owned by [flag permutation runner](./flag-permutation-runner.md#inputs). This spec assumes the flat shape `feature → {flags: [..], excluded: {FLAG: "category: reason"}, _comment?: "..."}`. `_comment` is free text the runner also accepts; ignore it here.
 - **Production source**, minus exclusions.
 
 Validate the config at load and fail loudly, naming the field and file: a pattern missing a required field, a container mapping referenced but not defined, a malformed annotation. Publish a schema for the config; it must accept every key the loader accepts, or editors will flag valid configs.
