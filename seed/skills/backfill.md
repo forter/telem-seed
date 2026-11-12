@@ -66,7 +66,7 @@ Some single flows have a scenario space too large to backfill in one pass withou
 
 #### Once `FLOW-CHECKLIST.md` exists
 
-Every run starts by offering a flow from the checklist. When the user picks the flow, it begins the flow backfill process with no pauses, after which it checks the flow in the checklist.
+Every run starts by offering a flow from the checklist. When the user picks the flow, it begins the flow backfill process with no pauses between steps, after which it checks the flow in the checklist. Human gates still wait for the human; never approve on their behalf.
 
 The backfill now has the following steps as skills, where each will invoke the next one. This order, the loops, etc. will be open for specialization and interpretation once the user has had time to work with Telem for a bit. For now, this is the baseline:
 
