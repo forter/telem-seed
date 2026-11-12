@@ -15,6 +15,19 @@ Make sure you know what platform you're aiming for (ask the user if they have no
 
 Platform-specific hints can be found in [hints](./hints/README.md).
 
+## Hyper-Specific to the User
+
+The implementation you build should not be generic. It should be specific to the user's:
+
+- **Stack**: frameworks, libraries, test runners, build tooling.
+- **Agent harness**: Claude Code, Codex, etc. Skill format, sub-agents, hooks and permissions all differ.
+- **Preferences**: the user's, their team's and their organization's conventions, review process and tooling.
+- **Infrastructure**: the systems the code touches and the user's engineering runs on, under their real names (e.g. a home-grown configuration system called "Knobly", not "the config system"). Fakes, CI and ticketing details live here.
+
+Ask the user for what you can't discover, and bake the answers in. You won't get it all right the first time, so the implementation should also be able to pick up more of these specifics as they surface during use.
+
+One way to do this is to keep these specifics in a context skill that the main skills invoke, so they stay generic. Whether to do it that way, or some other way, is your call.
+
 ## Context
 
 ### Principles
