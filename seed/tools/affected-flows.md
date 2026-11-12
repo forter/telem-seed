@@ -84,7 +84,7 @@ Exit 0 on a clean report, 1 on usage or runtime error, 2 on no hunks, 3 when a r
 
 ### 8. Enforcement
 
-The `sync` skill requires the tool's output for every changed hunk, and the fan-out covers every flow in the result, not a chosen one. Test the tool against **real captured coverage**, not hand-built reports. Hand-built reports tend to contain only flat, single-line statements with no enclosing containers. That shape hid the container over-claim, the function-declaration-line over-claim and the module-style parse failure. Fixtures need one report per flow, a zeroed never-loaded report, and one case per row of §3 and §4.
+The `sync` skill requires the tool's output for every changed hunk, and the fan-out covers every flow in the result, not a chosen one. Test the tool against **real captured coverage**, not hand-built reports. Hand-built reports tend to contain only flat, single-line statements with no enclosing containers. That shape hid the container over-claim, the function-declaration-line over-claim and the module-style parse failure. Fixtures need one report per flow, a zeroed never-loaded report, and one case per row of §3 and §4. Coverage output is ephemeral and describes one source revision, so a captured report is a frozen snapshot: keep it with the source it came from, or regenerate it from a small fixture app, and fail with a "stale capture" message when the two diverge.
 
 ## Challenges and edge cases
 
