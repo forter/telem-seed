@@ -148,7 +148,7 @@ If the API accepts an optional field that changes request shape, add a scenario 
 - Assert the full IO shape with the field present, confirm absence when omitted, **at the final destination, across serialization boundaries**.
 - Look beyond the body: path params, query strings, headers. **Nested optionals** get three cases: outer with all subfields, outer with only required, absent.
 - Write rejection scenarios for invalid values (at minimum wrong type, bad format, null for non-nullable).
-- Inventory: `field | covered? | changes IO shape? | changes response?`. Find optional fields in schemas, destructuring defaults, optional chaining, and conditional forwarding. Fields silently ignored and never forwarded aren't worth testing.
+- Inventory: `field | covered? | changes IO shape? | changes response?`. Find optional fields in schemas, destructuring defaults, optional chaining, and conditional forwarding. Fields silently ignored and never forwarded aren't worth testing, unless forwarding them would be dangerous (server-owned or sensitive fields): one scenario shows they are ignored.
 - These are **not duplicates** of the base scenario (different request shape); never consolidate them away.
 
 ## 7. Discrete mappings
