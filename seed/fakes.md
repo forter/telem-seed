@@ -234,7 +234,7 @@ A trust hierarchy, from always-on/blocking to judgment:
 
 **Runtime meta-tests (always run, no real side, never skip, not in the parity ledger).** Static lint verifies fakes are *shaped* right; only runtime proves the **assembled** net works. If wiring silently breaks (fake never registered, After hook swallows the throw, cleanup leaks), every scenario passes vacuously: the net is the load-bearing wall.
 1. **Unowned-IO detection:** under a scenario ID, record via a registered fake, invoke the same registry-wide check the After hook runs without claiming; assert it throws naming the data. Also catches unregistered fakes and swallowing hooks.
-2. **Cleanup isolation:** record under scenario A, run registry cleanup, assert scenario B sees clean state in every fake.
+2. **Cleanup isolation:** record under both scenario A and B, run registry cleanup for A, assert A is clean and B's data is intact in every fake. A B that was never dirtied passes a no-op cleanup.
 3. **Network block active:** after boot, attempt an outbound call and assert failure with **the block's own error signature**. Target a resolvable host (not a closed port: `ECONNREFUSED` fires even with no block ⇒ false green). The always-on backstop for an unfaked *network* boundary in CI. (Non-network boundaries still leak silently: build every fake.)
    Ownership-on-empty is static, so no runtime duplicate.
 
